@@ -181,7 +181,7 @@ function showTab(id,button){
  document.querySelectorAll("nav button").forEach(x=>x.classList.remove("active"));
  document.getElementById(id).classList.add("active");
  button.classList.add("active");
- if(id==="events")loadEvents();
+ if(id==="events"||id==="battle")loadEvents();
 }
 function normalise(key){return String(key).toLowerCase().replace(/[^a-z0-9]/g,"")}
 function getValue(obj,keys,depth=0){
