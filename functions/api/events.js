@@ -8,11 +8,23 @@ function normalise(value) {
 function playerName(member) {
   const player = member?.player || member;
 
+  
+function playerName(member) {
+  const player = member?.player || member;
+
   const name =
     player?.nick_name ||
     player?.nickname ||
     player?.player_name ||
-    player?.name;
+    player?.name ||
+    member?.nick_name ||
+    member?.nickname ||
+    member?.player_name ||
+    member?.name;
+
+  return name ? String(name).trim() : null;
+}
+  
 
   return name ? String(name).trim() : null;
 }
