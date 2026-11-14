@@ -153,20 +153,25 @@ export async function onRequest({ request, env }) {
       ).all();
 
       let liveMembers = [];
-      let rosterAvailable = true;
+let rosterAvailable = true;
+let rosterError = null;
 
-      try {
-        liveMembers = await getLiveMembers();
-      } catch (error) {
-        rosterAvailable = false;
-      }
+try {
+  liveMembers = await getLiveMembers();
+} catch (error) {
+  rosterAvailable = false;
+  rosterError = error.message;
+}
+
+      
 
       return Response.json({
-        events: events.results,
-        signups: signups.results,
-        members: liveMembers,
-        rosterAvailable
-      });
+  events: events.results,
+  signups: signups.results,
+  members: liveMembers,
+  rosterAvailable,
+  rosterError
+});
     }
 
     if (request.method !== "POST") {
