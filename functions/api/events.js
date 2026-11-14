@@ -29,7 +29,61 @@ function playerName(member) {
   return name ? String(name).trim() : null;
 }
 
+
 async function getLiveMembers() {
+  const response = await fetch(MIGHTPULSE_API_URL, {
+    headers: { Accept: "application/json" },
+    cache: "no-store"
+  });
+
+  if (!response.ok) {
+    throw new Error("MightPulse HTTP " + response.status);
+  }
+
+  const data = await response.json();
+
+  if (!Array.isArray(data.members)) {
+    throw new Error("MightPulse members array unavailable");
+  }
+
+  const names = data.members
+    .map(member => {
+      const player = member?.player || member || {};
+
+      return (
+        player.nick_name ||
+        player.nickname ||
+        player.player_name ||
+        player.name ||
+        member?.nick_name ||
+        member?.nickname ||
+        member?.player_name ||
+        member?.name
+      );
+    })
+    .filter(name =>
+      typeof name === "string" &&
+      name.trim() &&
+      name.trim().toLowerCase() !== "unknown"
+    )
+    .map(name => name.trim());
+
+  const uniqueNames = [
+    ...new Map(
+      names.map(name => [
+        name.toLowerCase(),
+        name
+      ])
+    ).values()
+  ];
+
+  if (!uniqueNames.length) {
+    throw new Error("No member names found");
+  }
+
+  return uniqueNames;
+}
+
   const response = await fetch(MIGHTPULSE_API_URL, {
     headers: { Accept: "application/json" },
     cache: "no-store"
