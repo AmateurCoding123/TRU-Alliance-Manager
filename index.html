@@ -351,7 +351,191 @@ async function loadEvents(){
  }
 }
 function eventSignups(eventId){return eventData.signups.filter(s=>String(s.event_id)===String(eventId))}
-function renderEvents(){
+ function renderEvents(){
  const container=document.getElementById("eventList");
- if(!eventData.events.length){container.innerHTML='<div class="panel muted">There are no events scheduled at the moment.</div>';return}
- const sorted=[...ev
+ if(!eventData.events.length){
+  container.innerHTML='<div class="panel muted">There are no events scheduled at the moment.</div>';
+  return;
+ }
+
+ const sorted=[...eventData.events].sort((a,b)=>new Date(a.event_date)-new Date(b.event_date));
+
+ container.innerHTML=sorted.map(event=>{
+  const signups=eventSignups(event.id);
+  const player=selectedPlayer();
+  const alreadySigned=signups.some(s=>s.player_name===player);
+  const date=new Date(event.event_date);
+  const dateText=Number.isNaN(date.getTime())?safe(event.event_date):date.toLocaleString("en-GB",{dateStyle:"medium",timeStyle:"short"});
+
+  return `
+   <div class="event-card">
+    <div class="event-date">${dateText}</div>
+    <h3>${safe(event.event_name)}</h3>
+    ${event.description?`<div class="event-description">${safe(event.description)}</div>`:""}
+    <div class="attendance">
+     <strong>Attendance (${signups.length})</strong>
+     ${signups.length?`<ul>${signups.map(s=>`<li>${safe(s.player_name)}</li>`).join("")}</ul>`:'<p class="muted">Nobody has signed up yet.</p>'}
+    </div>
+    <div class="event-actions">
+     ${alreadySigned
+      ?`<button class="danger" onclick="cancelSignup(${Number(event.id)})">Cancel my place</button>`
+      :`<button class="primary" onclick="signup(${Number(event.id)})" ${!player||!eventData.rosterAvailable?"disabled":""}>Sign up</button>`}
+     ${adminToken?`
+      <button class="secondary" onclick="editEvent(${Number(event.id)})">Edit</button>
+      <button class="danger" onclick="deleteEvent(${Number(event.id)})">Delete</button>
+     `:""}
+    </div>
+   </div>
+  `;
+ }).join("");
+}
+
+async function signup(eventId){
+ const player=selectedPlayer();
+ if(!player){alert("Please select your in-game name first.");return}
+ try{
+  await apiJson(EVENTS_URL,{
+   method:"POST",
+   body:JSON.stringify({action:"signup",event_id:eventId,player_name:player})
+  });
+  await loadEvents();
+ }catch(error){
+  alert(error.message);
+ }
+}
+
+async function cancelSignup(eventId){
+ const player=selectedPlayer();
+ if(!player){alert("Please select your in-game name first.");return}
+ if(!confirm("Are you sure you want to cancel your place?"))return;
+ try{
+  await apiJson(EVENTS_URL,{
+   method:"POST",
+   body:JSON.stringify({action:"cancel",event_id:eventId,player_name:player})
+  });
+  await loadEvents();
+ }catch(error){
+  alert(error.message);
+ }
+}
+
+document.getElementById("eventPlayer").addEventListener("change",renderEvents);
+
+document.getElementById("adminLoginForm").addEventListener("submit",async e=>{
+ e.preventDefault();
+ const button=document.getElementById("loginButton");
+ button.disabled=true;
+ setMessage("loginMessage","Logging in...");
+ try{
+  const password=document.getElementById("adminPassword").value;
+  const result=await apiJson(ADMIN_URL,{
+   method:"POST",
+   body:JSON.stringify({action:"login",password})
+  });
+  adminToken=result.token;
+  sessionStorage.setItem("truAdminToken",adminToken);
+  document.getElementById("adminPassword").value="";
+  setAdminView();
+  renderEvents();
+  setMessage("loginMessage","Logged in successfully.","status good");
+ }catch(error){
+  setMessage("loginMessage",error.message,"status bad");
+ }finally{
+  button.disabled=false;
+ }
+});
+
+document.getElementById("logoutButton").addEventListener("click",()=>{
+ adminToken="";
+ sessionStorage.removeItem("truAdminToken");
+ setAdminView();
+ resetEventForm();
+ renderEvents();
+});
+
+function resetEventForm(){
+ editingEventId=null;
+ document.getElementById("eventForm").reset();
+ document.getElementById("eventFormTitle").textContent="Create an event";
+ document.getElementById("saveEventButton").textContent="Create event";
+ document.getElementById("cancelEditButton").classList.add("hidden");
+ setMessage("adminMessage","");
+}
+
+function editEvent(eventId){
+ const event=eventData.events.find(e=>Number(e.id)===Number(eventId));
+ if(!event)return;
+
+ editingEventId=Number(eventId);
+ document.getElementById("eventName").value=event.event_name||"";
+ document.getElementById("eventDescription").value=event.description||"";
+
+ const date=new Date(event.event_date);
+ if(!Number.isNaN(date.getTime())){
+  date.setMinutes(date.getMinutes()-date.getTimezoneOffset());
+  document.getElementById("eventDate").value=date.toISOString().slice(0,16);
+ }
+
+ document.getElementById("eventFormTitle").textContent="Edit event";
+ document.getElementById("saveEventButton").textContent="Save changes";
+ document.getElementById("cancelEditButton").classList.remove("hidden");
+ document.getElementById("eventForm").scrollIntoView({behavior:"smooth",block:"start"});
+}
+
+document.getElementById("cancelEditButton").addEventListener("click",resetEventForm);
+
+document.getElementById("eventForm").addEventListener("submit",async e=>{
+ e.preventDefault();
+
+ const button=document.getElementById("saveEventButton");
+ button.disabled=true;
+ setMessage("adminMessage","Saving event...");
+
+ const payload={
+  action:editingEventId?"update_event":"create_event",
+  event_name:document.getElementById("eventName").value.trim(),
+  event_date:document.getElementById("eventDate").value,
+  description:document.getElementById("eventDescription").value.trim()
+ };
+
+ if(editingEventId)payload.event_id=editingEventId;
+
+ try{
+  await apiJson(EVENTS_URL,{
+   method:"POST",
+   headers:{"Authorization":"Bearer "+adminToken},
+   body:JSON.stringify(payload)
+  });
+  resetEventForm();
+  await loadEvents();
+  setMessage("adminMessage","Event saved successfully.","status good");
+ }catch(error){
+  setMessage("adminMessage",error.message,"status bad");
+ }finally{
+  button.disabled=false;
+ }
+});
+
+async function deleteEvent(eventId){
+ if(!confirm("Are you sure you want to delete this event and all its sign-ups?"))return;
+
+ try{
+  await apiJson(EVENTS_URL,{
+   method:"POST",
+   headers:{"Authorization":"Bearer "+adminToken},
+   body:JSON.stringify({action:"delete_event",event_id:eventId})
+  });
+  if(editingEventId===eventId)resetEventForm();
+  await loadEvents();
+ }catch(error){
+  alert(error.message);
+ }
+}
+
+setAdminView();
+resetEventForm();
+loadAlliance();
+loadEvents();
+</script>
+</body>
+</html>
