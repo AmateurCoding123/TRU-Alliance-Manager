@@ -536,6 +536,67 @@ setAdminView();
 resetEventForm();
 loadAlliance();
 loadEvents();
+ function battleEvent(){
+ const now=Date.now();
+ return [...eventData.events]
+  .filter(e=>/castle\s*battle/i.test(e.event_name||""))
+  .filter(e=>{const t=new Date(e.event_date).getTime();return Number.isFinite(t)&&t>now-3*3600000})
+  .sort((a,b)=>new Date(a.event_date)-new Date(b.event_date))[0]||null;
+}
+function countdownText(ms){
+ if(ms<=0)return "Battle time!";
+ const s=Math.floor(ms/1000),d=Math.floor(s/86400),h=Math.floor(s%86400/3600),m=Math.floor(s%3600/60),sec=s%60;
+ return (d?d+"d ":"")+h+"h "+m+"m "+sec+"s";
+}
+function renderBattle(){
+ const box=document.getElementById("battleBox");
+ if(!box)return;
+ const ev=battleEvent();
+ if(!ev){
+  box.innerHTML='<p class="muted">No Castle Battle is scheduled yet. Leaders can add one on the Events tab by creating an event with "Castle Battle" in the name.</p>';
+  return;
+ }
+ const old=document.getElementById("battlePlayer");
+ const prev=old?old.value:"";
+ const signups=eventSignups(ev.id);
+ const when=new Date(ev.event_date);
+ box.innerHTML=`
+  <div class="event-date">${safe(when.toLocaleString("en-GB",{dateStyle:"full",timeStyle:"short"}))}</div>
+  <h3>${safe(ev.event_name)}</h3>
+  <div class="number" id="battleCountdown" data-time="${when.getTime()}">${countdownText(when.getTime()-Date.now())}</div>
+  ${ev.description?`<div class="event-description">${safe(ev.description)}</div>`:""}
+  <label for="battlePlayer">Your in-game name</label>
+  <select id="battlePlayer" onchange="renderBattle()"></select>
+  <div class="event-actions" id="battleActions"></div>
+  <div class="attendance"><strong>Signed up (${signups.length})</strong>
+   ${signups.length?`<ul>${signups.map(s=>`<li>${safe(s.player_name)}</li>`).join("")}</ul>`:'<p class="muted">Nobody has signed up yet.</p>'}
+  </div>`;
+ const select=document.getElementById("battlePlayer");
+ const first=document.createElement("option");first.value="";
+ first.textContent=eventData.rosterAvailable?"Choose your in-game name":"Roster unavailable";
+ select.appendChild(first);
+ eventData.members.forEach(n=>{const o=document.createElement("option");o.value=n;o.textContent=n;select.appendChild(o)});
+ if(eventData.members.includes(prev))select.value=prev;
+ const player=select.value;
+ const signed=signups.some(s=>s.player_name===player);
+ document.getElementById("battleActions").innerHTML=signed
+  ?`<button class="danger" onclick="battleAction('cancel',${Number(ev.id)})">Cancel my place</button>`
+  :`<button class="primary" onclick="battleAction('signup',${Number(ev.id)})" ${!player||!eventData.rosterAvailable?"disabled":""}>Sign up</button>`;
+}
+async function battleAction(action,eventId){
+ const player=document.getElementById("battlePlayer").value;
+ if(!player){alert("Please choose your in-game name first.");return}
+ if(action==="cancel"&&!confirm("Cancel your place in the battle?"))return;
+ try{
+  await apiJson(EVENTS_URL,{method:"POST",body:JSON.stringify({action,event_id:eventId,player_name:player})});
+  await loadEvents();
+ }catch(error){alert(error.message)}
+}
+setInterval(()=>{
+ const el=document.getElementById("battleCountdown");
+ if(!el||!el.dataset.time)return;
+ el.textContent=countdownText(Number(el.dataset.time)-Date.now());
+},1000);
 </script>
 </body>
 </html>
