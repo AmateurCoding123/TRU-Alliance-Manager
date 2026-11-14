@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -10,22 +9,15 @@
 *{box-sizing:border-box}
 body{margin:0;background:#0b0d13;color:#eee5cb;font-family:Arial,sans-serif}
 header{padding:25px 18px;background:#151925;border-bottom:1px solid #92783d}
-h1,h2{color:#e6c778;margin-top:0}
+h1,h2,h3{color:#e6c778;margin-top:0}
 h1{letter-spacing:3px;margin-bottom:8px}
 header p,.muted{color:#9ba2b4}
-.creator-credit{
- color:#927f55;
- font-size:11px;
- letter-spacing:1px;
- margin-top:-8px;
- margin-bottom:15px;
-}
+.creator-credit{color:#927f55;font-size:11px;letter-spacing:1px;margin-top:-8px;margin-bottom:15px}
 nav{display:flex;gap:8px;padding:12px;overflow-x:auto}
 button{background:#1a2030;color:#d9c58f;border:1px solid #51472f;padding:12px 16px;border-radius:9px;white-space:nowrap;cursor:pointer}
 button.active{background:#8b7139;color:white}
 main{padding:15px;max-width:1100px;margin:auto}
-.tab{display:none}
-.tab.active{display:block}
+.tab{display:none}.tab.active{display:block}
 .stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 .card,.panel{background:#171d2a;border:1px solid #34394a;border-radius:13px;padding:16px;margin-bottom:12px}
 .number{font-size:clamp(18px,5.2vw,25px);font-weight:bold;color:#e6c778;overflow-wrap:anywhere}
@@ -34,44 +26,46 @@ details summary{cursor:pointer;color:#e6c778}
 pre{white-space:pre-wrap;word-break:break-all;font-size:12px;color:#9ba2b4;margin:10px 0 0}
 .card p{color:#9ba2b4;margin-bottom:0}
 .row{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap}
-input,select{background:#0b0d13;border:1px solid #51472f;color:white;padding:12px;border-radius:8px;width:100%;margin:8px 0}
+input,select,textarea{background:#0b0d13;border:1px solid #51472f;color:white;padding:12px;border-radius:8px;width:100%;margin:8px 0;font:inherit}
+textarea{min-height:90px;resize:vertical}
 table{width:100%;border-collapse:collapse}
 th,td{text-align:left;padding:12px;border-bottom:1px solid #34394a}
 th{color:#e6c778;cursor:pointer;user-select:none}
 th:first-child,td:first-child{position:sticky;left:0;background:#171d2a}
 .count{margin:4px 0 10px}
 .status{color:#9ba2b4;font-size:13px}
-.good{color:#8bd49a}
-.bad{color:#ff9999}
-.warning{color:#e6c778}
+.good{color:#8bd49a}.bad{color:#ff9999}.warning{color:#e6c778}
 .player-name{font-weight:bold;color:#eee5cb}
 footer{text-align:center;padding:25px;color:#777f91;font-size:12px}
-button:disabled{opacity:.5;cursor:wait}
+button:disabled{opacity:.5;cursor:not-allowed}
 .filters{display:grid;grid-template-columns:1fr;gap:8px}
-.detail-selector{
- margin:12px 0;
- padding:13px;
- background:#171d2a;
- border:1px solid #34394a;
- border-radius:10px;
-}
-.detail-selector label{
- display:block;
- color:#e6c778;
- font-size:13px;
- font-weight:bold;
- margin-bottom:5px;
-}
+.detail-selector{margin:12px 0;padding:13px;background:#171d2a;border:1px solid #34394a;border-radius:10px}
+.detail-selector label{display:block;color:#e6c778;font-size:13px;font-weight:bold;margin-bottom:5px}
 .detail-selector select{margin:5px 0 0}
+.table-scroll{overflow-x:auto;width:100%}
+.event-card{background:#171d2a;border:1px solid #34394a;border-radius:13px;padding:16px;margin:12px 0}
+.event-date{color:#e6c778;font-weight:bold;margin-bottom:8px}
+.event-description{color:#c3c7d1;white-space:pre-wrap;overflow-wrap:anywhere}
+.event-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.primary{background:#8b7139;color:white}
+.danger{border-color:#854848;color:#ffaaaa}
+.secondary{background:#101521}
+.attendance{margin-top:14px;padding-top:12px;border-top:1px solid #34394a}
+.attendance ul{margin:8px 0 0;padding-left:20px;columns:2}
+.attendance li{padding:3px 0;break-inside:avoid}
+.form-grid{display:grid;grid-template-columns:1fr;gap:5px}
+.form-grid label{color:#e6c778;font-size:13px;font-weight:bold}
+.hidden{display:none!important}
+.small{font-size:12px}
 @media(min-width:700px){
  .stats{grid-template-columns:repeat(4,minmax(0,1fr))}
  .filters{grid-template-columns:1fr}
  .detail-selector{max-width:400px}
+ .form-grid.two{grid-template-columns:1fr 1fr;gap:12px}
 }
 </style>
 </head>
 <body>
-
 <header>
 <h1>TRU</h1>
 <p>Alliance Management · Kingdom 2443</p>
@@ -81,16 +75,13 @@ button:disabled{opacity:.5;cursor:wait}
 <button id="refreshButton" onclick="loadAlliance()">↻ Refresh data</button>
 </div>
 </header>
-
 <nav>
 <button class="active" onclick="showTab('dashboard',this)">Dashboard</button>
 <button onclick="showTab('members',this)">Members</button>
 <button onclick="showTab('events',this)">Events</button>
 <button onclick="showTab('battle',this)">Castle Battle</button>
 </nav>
-
 <main>
-
 <div id="dashboard" class="tab active">
 <h2>Alliance Overview</h2>
 <div class="stats">
@@ -99,7 +90,6 @@ button:disabled{opacity:.5;cursor:wait}
  <div class="card"><div class="number" id="totalKills">--</div><p>Total Kills</p></div>
  <div class="card"><div class="number" id="updated">--</div><p>Last Updated</p></div>
 </div>
-
 <section>
 <h2>Alliance Information</h2>
 <div class="panel">
@@ -107,217 +97,264 @@ button:disabled{opacity:.5;cursor:wait}
 <p class="muted">Live alliance data powered by MightPulse.</p>
 <p id="summary" class="status">Waiting for alliance data...</p>
 <p id="dataQuality" class="status"></p>
-<details>
-<summary>Data diagnostics</summary>
-<pre id="debug">No data yet.</pre>
-</details>
+<details><summary>Data diagnostics</summary><pre id="debug">No data yet.</pre></details>
 </div>
 </section>
 </div>
 
 <div id="members" class="tab">
 <h2>Member Management</h2>
-
-<div class="filters">
- <input id="search" placeholder="Search members..." oninput="renderMembers()">
-</div>
-
+<div class="filters"><input id="search" placeholder="Search members..." oninput="renderMembers()"></div>
 <div class="detail-selector">
  <label for="detailSelect">Choose member detail to display</label>
  <select id="detailSelect" onchange="renderMembers()">
-  <option value="power">Power</option>
-  <option value="kills">Kills</option>
-  <option value="rank">Rank</option>
-  <option value="level">Town Centre Level (TC)</option>
+  <option value="power">Power</option><option value="kills">Kills</option><option value="rank">Rank</option><option value="level">Town Centre Level (TC)</option>
  </select>
 </div>
-
 <p id="memberCountText" class="status count"></p>
-
-<div class="panel">
- <table>
-  <thead><tr id="memberHead"></tr></thead>
-  <tbody id="memberRows">
-   <tr><td colspan="2">Loading members...</td></tr>
-  </tbody>
- </table>
+<div class="panel table-scroll">
+ <table><thead><tr id="memberHead"></tr></thead><tbody id="memberRows"><tr><td colspan="2">Loading members...</td></tr></tbody></table>
 </div>
 </div>
 
 <div id="events" class="tab">
 <h2>Alliance Events</h2>
-<div class="panel">Event calendar and sign-ups coming soon.</div>
+<p class="muted">Choose your in-game name from the live alliance roster to sign up for an event.</p>
+<div class="panel">
+ <div class="row"><strong>Event sign-ups</strong><span id="eventsStatus" class="status">Loading events...</span></div>
+ <label for="eventPlayer">Your in-game name</label>
+ <select id="eventPlayer"><option value="">Loading alliance members...</option></select>
+ <p id="rosterMessage" class="status small">Names are loaded from the live MightPulse alliance roster.</p>
+</div>
+
+<div id="adminLoginPanel" class="panel">
+ <h3>Leadership access</h3>
+ <p class="muted">Log in to manage alliance events.</p>
+ <form id="adminLoginForm">
+  <label for="adminPassword">Leadership password</label>
+  <input id="adminPassword" type="password" autocomplete="current-password" placeholder="Enter leadership password" required>
+  <button class="primary" type="submit" id="loginButton">Log in</button>
+ </form>
+ <p id="loginMessage" class="status" aria-live="polite"></p>
+</div>
+
+<div id="adminPanel" class="panel hidden">
+ <div class="row"><h3>Event management</h3><button class="secondary" id="logoutButton" type="button">Log out</button></div>
+ <form id="eventForm">
+  <h3 id="eventFormTitle">Create an event</h3>
+  <label for="eventName">Event name</label>
+  <input id="eventName" maxlength="100" placeholder="e.g. Castle Battle" required>
+  <label for="eventDate">Date and time</label>
+  <input id="eventDate" type="datetime-local" required>
+  <label for="eventDescription">Description (optional)</label>
+  <textarea id="eventDescription" maxlength="2000" placeholder="Add event details, instructions or requirements..."></textarea>
+  <div class="event-actions"><button class="primary" type="submit" id="saveEventButton">Create event</button><button class="secondary hidden" type="button" id="cancelEditButton">Cancel edit</button></div>
+  <p id="adminMessage" class="status" aria-live="polite"></p>
+ </form>
+</div>
+
+<h3>Upcoming and current events</h3>
+<div id="eventList"><div class="panel muted">Loading events...</div></div>
 </div>
 
 <div id="battle" class="tab">
 <h2>Castle Battle</h2>
 <div class="panel">Battle planning and player assignments coming soon.</div>
 </div>
-
 </main>
-
 <footer>TRU ALLIANCE MANAGER · KINGDOM 2443</footer>
 
 <script>
 const API_URL="https://mightpulse-api.peter-neighbour4.workers.dev";
+const EVENTS_URL="/api/events";
+const ADMIN_URL="/api/admin";
 let members=[];
 let loading=false;
 let sortKey="power";
 let sortDir=-1;
+let eventData={events:[],signups:[],members:[],rosterAvailable:false};
+let adminToken=sessionStorage.getItem("truAdminToken")||"";
+let editingEventId=null;
 
 function showTab(id,button){
  document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));
  document.querySelectorAll("nav button").forEach(x=>x.classList.remove("active"));
  document.getElementById(id).classList.add("active");
  button.classList.add("active");
+ if(id==="events")loadEvents();
 }
-
-function normalise(key){
- return String(key).toLowerCase().replace(/[^a-z0-9]/g,"");
-}
-
+function normalise(key){return String(key).toLowerCase().replace(/[^a-z0-9]/g,"")}
 function getValue(obj,keys,depth=0){
  if(!obj||typeof obj!=="object"||depth>4)return null;
  const wanted=keys.map(normalise);
-
  for(const [key,value] of Object.entries(obj)){
   if(wanted.includes(normalise(key))&&value!==null&&value!==undefined&&value!==""){
    if(typeof value==="object")return value.name??value.value??value.total??value.nickname??null;
    return value;
   }
  }
-
  for(const value of Object.values(obj)){
   if(value&&typeof value==="object"&&!Array.isArray(value)){
-   const found=getValue(value,keys,depth+1);
-   if(found!==null)return found;
+   const found=getValue(value,keys,depth+1);if(found!==null)return found;
   }
  }
  return null;
 }
-
 function playerName(m){
  const value=getValue(m,["nick_name","nickname","name","player_name","playerName","username","display_name","displayName","character_name","characterName","governor_name","governorName","governor"]);
  return value===null?"Unknown":String(value);
 }
-
-function playerPower(m){
- return getValue(m,["power","might","total_power","totalPower","player_power","combat_power","overall_power"]);
-}
-
-function playerKills(m){
- return getValue(m,["kills","kill_points","killPoints","total_kills","totalKills","kill_count","killCount","troops_killed"]);
-}
-
-function playerLevel(m){
- return getValue(m,["town_center_level","townCenterLevel","townhall_level","townHallLevel","tc_level","tcLevel","city_level","level"]);
-}
-
-function playerRankNumber(m){
- const value=getValue(m,["alliance_rank","allianceRank","rank"]);
- return value===null?null:number(value);
-}
-
+function playerPower(m){return getValue(m,["power","might","total_power","totalPower","player_power","combat_power","overall_power"])}
+function playerKills(m){return getValue(m,["kills","kill_points","killPoints","total_kills","totalKills","kill_count","killCount","troops_killed"])}
+function playerLevel(m){return getValue(m,["town_center_level","townCenterLevel","townhall_level","townHallLevel","tc_level","tcLevel","city_level","level"])}
+function playerRankNumber(m){const value=getValue(m,["alliance_rank","allianceRank","rank"]);return value===null?null:number(value)}
 function playerRankLabel(m){
  const value=getValue(m,["alliance_rank_label","allianceRankLabel","rank_label"]);
  if(value!==null)return String(value);
- const rank=playerRankNumber(m);
- return rank===null?"--":"R"+rank;
+ const rank=playerRankNumber(m);return rank===null?"--":"R"+rank;
 }
-
 function number(value){
  if(value===null||value===undefined||value==="")return 0;
  if(typeof value==="object")value=value.value??value.total??value.amount??0;
  if(typeof value==="string")value=value.replace(/,/g,"").trim();
- const result=Number(value);
- return Number.isFinite(result)?result:0;
+ const result=Number(value);return Number.isFinite(result)?result:0;
 }
-
-function format(value){
- return number(value).toLocaleString("en-GB");
-}
-
-function safe(value){
- const el=document.createElement("span");
- el.textContent=String(value);
- return el.innerHTML;
-}
-
+function format(value){return number(value).toLocaleString("en-GB")}
+function safe(value){const el=document.createElement("span");el.textContent=String(value??"");return el.innerHTML}
 function findArray(data){
  if(Array.isArray(data))return data.length&&typeof data[0]==="object"?data:[];
  if(!data||typeof data!=="object")return [];
-
  const preferred=["members_full","members","member_list","memberList","alliance_members","allianceMembers","players","roster","alliance"];
-
- for(const key of preferred){
-  const match=Object.keys(data).find(k=>normalise(k)===normalise(key));
-  if(match&&Array.isArray(data[match]))return data[match];
- }
-
+ for(const key of preferred){const match=Object.keys(data).find(k=>normalise(k)===normalise(key));if(match&&Array.isArray(data[match]))return data[match]}
  let best=[],bestScore=0;
-
  for(const value of Object.values(data)){
   if(Array.isArray(value)&&value.length){
    const sample=value.find(x=>x&&typeof x==="object");
    if(sample){
-    const keys=Object.keys(sample).map(normalise);
-    let score=0;
+    const keys=Object.keys(sample).map(normalise);let score=0;
     if(keys.some(k=>["player","name","playername","nickname","username"].includes(k)))score+=5;
     if(keys.some(k=>["power","might","totalpower"].includes(k)))score+=3;
     if(keys.some(k=>["kills","killpoints","totalkills"].includes(k)))score+=3;
-    if(score>bestScore){bestScore=score;best=value;}
+    if(score>bestScore){bestScore=score;best=value}
    }
   }
  }
  return best;
 }
-
-const detailOptions={
- name:{label:"Player",sort:"name"},
- rank:{label:"Rank",sort:"rank"},
- power:{label:"Power",sort:"power"},
- kills:{label:"Kills",sort:"kills"},
- level:{label:"TC",sort:"level"}
-};
-
+const detailOptions={name:{label:"Player",sort:"name"},rank:{label:"Rank",sort:"rank"},power:{label:"Power",sort:"power"},kills:{label:"Kills",sort:"kills"},level:{label:"TC",sort:"level"}};
 function sortBy(key){
  if(sortKey===key)sortDir=-sortDir;
- else{
-  sortKey=key;
-  sortDir=key==="name"?1:-1;
- }
+ else{sortKey=key;sortDir=key==="name"?1:-1}
  renderMembers();
 }
-
 function renderMembers(){
  const search=(document.getElementById("search").value||"").toLowerCase().trim();
  const selected=document.getElementById("detailSelect").value;
  const detail=detailOptions[selected]||detailOptions.power;
-
- const rows=members.map(m=>({
-  raw:m,
-  name:playerName(m),
-  rank:playerRankNumber(m),
-  rankLabel:playerRankLabel(m),
-  power:number(playerPower(m)),
-  hasPower:playerPower(m)!==null,
-  kills:number(playerKills(m)),
-  hasKills:playerKills(m)!==null,
-  level:number(playerLevel(m)),
-  hasLevel:playerLevel(m)!==null
- }));
-
+ const rows=members.map(m=>({raw:m,name:playerName(m),rank:playerRankNumber(m),rankLabel:playerRankLabel(m),power:number(playerPower(m)),hasPower:playerPower(m)!==null,kills:number(playerKills(m)),hasKills:playerKills(m)!==null,level:number(playerLevel(m)),hasLevel:playerLevel(m)!==null}));
  let filtered=rows.filter(r=>r.name.toLowerCase().includes(search));
-
  filtered.sort((a,b)=>{
   let x=a[sortKey],y=b[sortKey];
-
-  if(sortKey==="rank"){
-   x=x===null?-1:x;
-   y=y===null?-1:y;
-  }
-
+  if(sortKey==="rank"){x=x===null?-1:x;y=y===null?-1:y}
   if(typeof x==="string")return x.localeCompare(String(y))*sortDir;
+  if(x===y)return a.name.localeCompare(b.name);
+  return (x<y?-1:1)*sortDir;
+ });
+ const arrowFor=key=>sortKey===key?(sortDir===1?" ▲":" ▼"):"";
+ document.getElementById("memberHead").innerHTML=`<th onclick="sortBy('name')">Player${arrowFor("name")}</th><th onclick="sortBy('${detail.sort}')">${detail.label}${arrowFor(detail.sort)}</th>`;
+ document.getElementById("memberCountText").textContent="Showing "+filtered.length+" of "+rows.length+" members · tap a heading to sort";
+ document.getElementById("memberRows").innerHTML=filtered.length?filtered.map(r=>{
+  let value="--";
+  if(selected==="power"&&r.hasPower)value=format(r.power);
+  if(selected==="kills"&&r.hasKills)value=format(r.kills);
+  if(selected==="rank")value=safe(r.rankLabel);
+  if(selected==="level"&&r.hasLevel)value=safe(r.level);
+  return `<tr><td><span class="player-name">${safe(r.name)}</span></td><td>${value}</td></tr>`;
+ }).join(""):'<tr><td colspan="2">No members match this search.</td></tr>';
+}
+async function loadAlliance(){
+ if(loading)return;loading=true;
+ const status=document.getElementById("connection"),button=document.getElementById("refreshButton");
+ status.textContent="Connecting to MightPulse...";status.className="status";button.disabled=true;
+ const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),30000);
+ try{
+  const response=await fetch(API_URL,{headers:{"Accept":"application/json"},signal:controller.signal,cache:"no-store"});
+  if(!response.ok)throw new Error("API returned HTTP "+response.status);
+  const data=await response.json(),newMembers=findArray(data);
+  if(!newMembers.length){console.log("MIGHTPULSE RESPONSE:",data);throw new Error("Connected, but the member list could not be identified. Check API data structure.")}
+  members=newMembers;
+  const knownNames=members.filter(m=>playerName(m)!=="Unknown").length;
+  const knownKills=members.filter(m=>playerKills(m)!==null).length;
+  const knownPower=members.filter(m=>playerPower(m)!==null).length;
+  const totalPower=members.reduce((sum,m)=>sum+number(playerPower(m)),0);
+  const totalKills=members.reduce((sum,m)=>sum+number(playerKills(m)),0);
+  document.getElementById("memberCount").textContent=members.length.toLocaleString("en-GB");
+  document.getElementById("totalPower").textContent=format(totalPower);
+  document.getElementById("totalKills").textContent=format(totalKills);
+  document.getElementById("updated").textContent=new Date().toLocaleTimeString("en-GB");
+  document.getElementById("summary").textContent="Successfully loaded "+members.length+" alliance members.";
+  document.getElementById("dataQuality").textContent="Names found: "+knownNames+"/"+members.length+" · Kill records found: "+knownKills+"/"+members.length+" · Power records found: "+knownPower+"/"+members.length;
+  document.getElementById("dataQuality").className=knownNames===members.length&&knownKills===members.length&&knownPower===members.length?"status good":"status warning";
+  const clip=o=>JSON.stringify(o,null,1).slice(0,1800);
+  document.getElementById("debug").textContent="Top-level keys: "+(data&&typeof data==="object"?Object.keys(data).join(", "):typeof data)+"\n\nFields on first member:\n"+(members[0]?Object.keys(members[0]).join(", "):"none")+"\n\nNested player fields:\n"+(members[0]?.player?Object.keys(members[0].player).join(", "):"No player object found")+"\n\nFirst member player data:\n"+(members[0]?.player?clip(members[0].player):"No player object found");
+  renderMembers();status.textContent="● MightPulse connected";status.className="status good";
+  console.log("MIGHTPULSE RESPONSE:",data);console.log("MEMBERS LOADED:",members.length);
+ }catch(error){
+  status.textContent="● Connection/data error";status.className="status bad";
+  document.getElementById("summary").textContent=error.name==="AbortError"?"MightPulse request timed out after 30 seconds.":error.message;
+  console.error("TRU DATA ERROR:",error);
+  if(!members.length)document.getElementById("memberRows").innerHTML='<tr><td colspan="2">'+safe(error.message)+'</td></tr>';
+ }finally{clearTimeout(timeout);loading=false;button.disabled=false}
+}
+
+function setMessage(id,message,type="status"){
+ const el=document.getElementById(id);el.textContent=message;el.className=type;
+}
+function setAdminView(){
+ document.getElementById("adminLoginPanel").classList.toggle("hidden",!!adminToken);
+ document.getElementById("adminPanel").classList.toggle("hidden",!adminToken);
+}
+function selectedPlayer(){return document.getElementById("eventPlayer").value}
+async function apiJson(url,options={}){
+ const response=await fetch(url,{...options,headers:{"Accept":"application/json","Content-Type":"application/json",...(options.headers||{})}});
+ let body={};try{body=await response.json()}catch(_){}
+ if(!response.ok)throw new Error(body.error||body.message||("Request failed (HTTP "+response.status+")"));
+ if(body.success===false)throw new Error(body.error||"The request could not be completed.");
+ return body;
+}
+function renderRoster(){
+ const select=document.getElementById("eventPlayer"),previous=select.value;
+ select.replaceChildren();
+ const placeholder=document.createElement("option");placeholder.value="";
+ placeholder.textContent=eventData.rosterAvailable?"Choose your in-game name":"Live alliance roster unavailable";
+ select.appendChild(placeholder);
+ if(eventData.rosterAvailable){
+  eventData.members.forEach(name=>{
+   const option=document.createElement("option");option.value=name;option.textContent=name;select.appendChild(option);
+  });
+  if(eventData.members.includes(previous))select.value=previous;
+  setMessage("rosterMessage",eventData.members.length+" alliance members available. Select your name from the list.");
+ }else{
+  setMessage("rosterMessage","The live member list could not be loaded. Sign-ups are disabled until it is available.","status bad");
+ }
+}
+async function loadEvents(){
+ const status=document.getElementById("eventsStatus");status.textContent="Loading events...";
+ try{
+  const data=await apiJson(EVENTS_URL,{method:"GET",headers:{"Cache-Control":"no-cache"}});
+  eventData={events:Array.isArray(data.events)?data.events:[],signups:Array.isArray(data.signups)?data.signups:[],members:Array.isArray(data.members)?data.members:[],rosterAvailable:data.rosterAvailable===true};
+  renderRoster();renderEvents();status.textContent="Events updated";status.className="status good";
+ }catch(error){
+  status.textContent="Could not load events";status.className="status bad";
+  document.getElementById("eventList").textContent=error.message;
+  setMessage("rosterMessage","Could not load the event/member data. Please refresh and try again.","status bad");
+ }
+}
+function eventSignups(eventId){return eventData.signups.filter(s=>String(s.event_id)===String(eventId))}
+function renderEvents(){
+ const container=document.getElementById("eventList");
+ if(!eventData.events.length){container.innerHTML='<div class="panel muted">There are no events scheduled at the moment.</div>';return}
+ const sorted=[...evx.localeCompare(String(y))*sortDir;
   if(x===y)return a.name.localeCompare(b.name);
   return (x<y?-1:1)*sortDir;
  });
