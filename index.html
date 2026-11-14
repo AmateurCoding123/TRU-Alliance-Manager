@@ -343,7 +343,7 @@ async function loadEvents(){
  try{
   const data=await apiJson(EVENTS_URL,{method:"GET",headers:{"Cache-Control":"no-cache"}});
   eventData={events:Array.isArray(data.events)?data.events:[],signups:Array.isArray(data.signups)?data.signups:[],members:Array.isArray(data.members)?data.members:[],rosterAvailable:data.rosterAvailable===true};
-  renderRoster();renderEvents();status.textContent="Events updated";status.className="status good";
+  renderRoster();renderEvents();renderBattle();status.textContent="Events updated";status.className="status good";
  }catch(error){
   status.textContent="Could not load events";status.className="status bad";
   document.getElementById("eventList").textContent=error.message;
