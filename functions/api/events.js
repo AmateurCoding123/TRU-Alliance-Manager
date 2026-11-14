@@ -5,90 +5,22 @@ function normalise(value) {
   return String(value).toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
-function getValue(obj, keys, depth = 0) {
-  if (!obj || typeof obj !== "object" || depth > 4) return null;
-
-  const wanted = keys.map(normalise);
-
-  for (const [key, value] of Object.entries(obj)) {
-    if (wanted.includes(normalise(key)) && value != null && value !== "") {
-      if (typeof value === "object") {
-        return value.name ?? value.value ?? value.total ?? value.nickname ?? null;
-      }
-      return value;
-    }
-  }
-
-  for (const value of Object.values(obj)) {
-    if (value && typeof value === "object" && !Array.isArray(value)) {
-      const found = getValue(value, keys, depth + 1);
-      if (found !== null) return found;
-    }
-  }
-
-  return null;
-}
-
 function playerName(member) {
-  const value = getValue(member, [
-    "nick_name", "nickname", "name", "player_name",
-    "playerName", "username", "display_name", "displayName",
-    "character_name", "characterName", "governor_name",
-    "governorName", "governor"
-  ]);
+  const player = member?.player || member;
 
-  return value === null ? null : String(value).trim();
-}
+  const name =
+    player?.nick_name ||
+    player?.nickname ||
+    player?.player_name ||
+    player?.name;
 
-function findArray(data) {
-  if (Array.isArray(data)) {
-    return data.length && typeof data[0] === "object" ? data : [];
-  }
-
-  if (!data || typeof data !== "object") return [];
-
-  const preferred = [
-    "members_full", "members", "member_list", "memberList",
-    "alliance_members", "allianceMembers", "players", "roster", "alliance"
-  ];
-
-  for (const key of preferred) {
-    const match = Object.keys(data).find(
-      k => normalise(k) === normalise(key)
-    );
-
-    if (match && Array.isArray(data[match])) return data[match];
-  }
-
-  let best = [];
-  let bestScore = 0;
-
-  for (const value of Object.values(data)) {
-    if (Array.isArray(value) && value.length) {
-      const sample = value.find(x => x && typeof x === "object");
-
-      if (sample) {
-        const keys = Object.keys(sample).map(normalise);
-        let score = 0;
-
-        if (keys.some(k => ["player", "name", "playername", "nickname", "username"].includes(k))) score += 5;
-        if (keys.some(k => ["power", "might", "totalpower"].includes(k))) score += 3;
-        if (keys.some(k => ["kills", "killpoints", "totalkills"].includes(k))) score += 3;
-
-        if (score > bestScore) {
-          bestScore = score;
-          best = value;
-        }
-      }
-    }
-  }
-
-  return best;
+  return name ? String(name).trim() : null;
 }
 
 async function getLiveMembers() {
   const response = await fetch(MIGHTPULSE_API_URL, {
-    headers: { Accept: "application/json" }
+    headers: { Accept: "application/json" },
+    cache: "no-store"
   });
 
   if (!response.ok) {
@@ -96,17 +28,25 @@ async function getLiveMembers() {
   }
 
   const data = await response.json();
-  const members = findArray(data);
 
-  const names = members
+  if (!Array.isArray(data.members)) {
+    throw new Error("MightPulse members array unavailable");
+  }
+
+  const names = data.members
+    .filter(member => member && member.ok !== false)
     .map(playerName)
     .filter(name => name && name !== "Unknown" && name.length <= 100);
 
-  if (!names.length) {
+  const uniqueNames = [
+    ...new Map(names.map(name => [normalise(name), name])).values()
+  ];
+
+  if (!uniqueNames.length) {
     throw new Error("Could not read the MightPulse member list");
   }
 
-  return [...new Map(names.map(name => [normalise(name), name])).values()];
+  return uniqueNames;
 }
 
 async function isAdmin(request, db) {
@@ -172,7 +112,6 @@ export async function onRequest({ request, env }) {
 
     const data = await request.json();
 
-    // Leadership-only event management
     if (["create_event", "update_event", "delete_event"].includes(data.action)) {
       if (!(await isAdmin(request, db))) {
         return Response.json(
@@ -228,7 +167,6 @@ export async function onRequest({ request, env }) {
       return Response.json({ success: true });
     }
 
-    // Member sign-ups and cancellations
     if (!["signup", "cancel"].includes(data.action)) {
       return Response.json({ error: "Invalid action" }, { status: 400 });
     }
@@ -255,18 +193,8 @@ export async function onRequest({ request, env }) {
 
     let memberName = submittedName;
 
-    // Only allow sign-ups from the current live alliance roster
     if (data.action === "signup") {
-      let liveMembers;
-
-      try {
-        liveMembers = await getLiveMembers();
-      } catch (error) {
-        return Response.json(
-          { error: "Could not verify the live alliance roster. Please try again." },
-          { status: 503 }
-        );
-      }
+      const liveMembers = await getLiveMembers();
 
       const verifiedName = liveMembers.find(
         name => normalise(name) === normalise(submittedName)
@@ -323,4 +251,4 @@ export async function onRequest({ request, env }) {
       { status: 400 }
     );
   }
-      }
+}
