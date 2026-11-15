@@ -613,6 +613,120 @@ setInterval(()=>{
   document.getElementById("installSteps").classList.toggle("hidden");
  });
 })();
+ var attendance=[];
+var attSig="";
+
+document.getElementById("adminPanel").insertAdjacentHTML("afterend",`
+<div id="attendancePanel" class="panel hidden">
+ <h3>Attendance log (leadership only)</h3>
+ <p class="muted">After an event, choose it, tick everyone who took part, and save.</p>
+ <label for="attEvent">Event</label>
+ <select id="attEvent" onchange="renderAttendanceForm()"></select>
+ <div class="event-actions">
+  <button class="secondary" type="button" onclick="attTickSignups()">Tick everyone who signed up</button>
+  <button class="secondary" type="button" onclick="attClear()">Clear all ticks</button>
+ </div>
+ <div id="attList" class="small"></div>
+ <div class="event-actions"><button class="primary" type="button" id="attSaveButton" onclick="saveAttendance()">Save attendance</button></div>
+ <p id="attMessage" class="status" aria-live="polite"></p>
+ <h3>Attendance summary</h3>
+ <p class="muted small">Lowest attendance first. Only events you have saved attendance for are counted.</p>
+ <div class="table-scroll"><table><thead><tr><th>Player</th><th>Attended</th><th>Logged</th><th>%</th></tr></thead><tbody id="attSummary"></tbody></table></div>
+</div>`);
+
+async function loadAttendance(){
+ if(!adminToken)return;
+ try{
+  const data=await apiJson("/api/attendance",{method:"GET",headers:{"Authorization":"Bearer "+adminToken}});
+  attendance=Array.isArray(data.records)?data.records:[];
+  renderAttendanceForm();
+  renderAttendanceSummary();
+ }catch(error){setMessage("attMessage",error.message,"status bad")}
+}
+
+function renderAttendanceForm(){
+ const sel=document.getElementById("attEvent"),prev=sel.value;
+ const evs=[...eventData.events].sort((a,b)=>new Date(b.event_date)-new Date(a.event_date));
+ sel.replaceChildren();
+ evs.forEach(e=>{
+  const o=document.createElement("option");
+  o.value=e.id;
+  o.textContent=e.event_name+" · "+new Date(e.event_date).toLocaleDateString("en-GB");
+  sel.appendChild(o);
+ });
+ if(evs.some(e=>String(e.id)===prev))sel.value=prev;
+ const id=sel.value;
+ const done=new Set(attendance.filter(r=>String(r.event_id)===String(id)&&Number(r.attended)===1).map(r=>r.player_name));
+ const list=document.getElementById("attList");
+ list.replaceChildren();
+ if(!id){list.textContent="No events yet.";return}
+ if(!eventData.members.length){list.textContent="The live member list is not available yet.";return}
+ eventData.members.forEach(name=>{
+  const label=document.createElement("label");
+  label.style.display="block";label.style.padding="4px 0";
+  const box=document.createElement("input");
+  box.type="checkbox";box.value=name;box.checked=done.has(name);
+  box.style.width="auto";box.style.margin="0 8px 0 0";box.style.padding="0";
+  label.appendChild(box);
+  label.appendChild(document.createTextNode(name));
+  list.appendChild(label);
+ });
+}
+
+function attTickSignups(){
+ const id=document.getElementById("attEvent").value;
+ const names=new Set(eventSignups(id).map(s=>s.player_name));
+ document.querySelectorAll("#attList input").forEach(b=>{b.checked=names.has(b.value)});
+}
+function attClear(){
+ document.querySelectorAll("#attList input").forEach(b=>{b.checked=false});
+}
+
+async function saveAttendance(){
+ const id=Number(document.getElementById("attEvent").value);
+ const boxes=[...document.querySelectorAll("#attList input")];
+ if(!id){setMessage("attMessage","Choose an event first.","status bad");return}
+ if(!boxes.length){setMessage("attMessage","The member list is not available, so nothing was saved.","status bad");return}
+ const present=boxes.filter(b=>b.checked).map(b=>b.value);
+ const absent=boxes.filter(b=>!b.checked).map(b=>b.value);
+ const button=document.getElementById("attSaveButton");
+ button.disabled=true;
+ setMessage("attMessage","Saving...");
+ try{
+  await apiJson("/api/attendance",{method:"POST",headers:{"Authorization":"Bearer "+adminToken},body:JSON.stringify({action:"save",event_id:id,present,absent})});
+  await loadAttendance();
+  setMessage("attMessage","Attendance saved ("+present.length+" took part).","status good");
+ }catch(error){
+  setMessage("attMessage",error.message,"status bad");
+ }finally{
+  button.disabled=false;
+ }
+}
+
+function renderAttendanceSummary(){
+ const valid=new Set(eventData.events.map(e=>String(e.id)));
+ const stats=new Map();
+ eventData.members.forEach(n=>stats.set(n,{a:0,t:0}));
+ attendance.filter(r=>valid.has(String(r.event_id))).forEach(r=>{
+  const s=stats.get(r.player_name)||{a:0,t:0};
+  s.t++;
+  if(Number(r.attended)===1)s.a++;
+  stats.set(r.player_name,s);
+ });
+ const rows=[...stats.entries()].map(([name,s])=>({name,a:s.a,t:s.t,pct:s.t?Math.round(s.a/s.t*100):null}));
+ rows.sort((x,y)=>((x.pct===null)-(y.pct===null))||((x.pct??0)-(y.pct??0))||x.name.localeCompare(y.name));
+ document.getElementById("attSummary").innerHTML=rows.length
+  ?rows.map(r=>`<tr><td>${safe(r.name)}</td><td>${r.a}</td><td>${r.t}</td><td>${r.pct===null?"--":r.pct+"%"}</td></tr>`).join("")
+  :'<tr><td colspan="4">No attendance logged yet.</td></tr>';
+}
+
+setInterval(()=>{
+ const sig=adminToken+"|"+eventData.events.length+"|"+eventData.members.length;
+ if(sig===attSig)return;
+ attSig=sig;
+ document.getElementById("attendancePanel").classList.toggle("hidden",!adminToken);
+ if(adminToken)loadAttendance();
+},1000);
 </script>
 </body>
 </html>
