@@ -727,6 +727,51 @@ setInterval(()=>{
  document.getElementById("attendancePanel").classList.toggle("hidden",!adminToken);
  if(adminToken)loadAttendance();
 },1000);
+ document.querySelector("#dashboard .stats").insertAdjacentHTML("beforebegin",'<div id="nextEventSlot"></div>');
+document.querySelector("#dashboard .stats").insertAdjacentHTML("afterend",'<section id="hallPanel"></section>');
+
+function topBy(fn,n){
+ return members.map(m=>({name:playerName(m),value:number(fn(m))}))
+  .filter(r=>r.name!=="Unknown"&&r.value>0)
+  .sort((a,b)=>b.value-a.value)
+  .slice(0,n);
+}
+
+function boardHtml(title,rows){
+ const medals=["🥇","🥈","🥉"];
+ return '<div class="card"><h3>'+title+'</h3>'+(rows.length
+  ?rows.map((r,i)=>'<div class="row" style="padding:6px 0"><span>'+(medals[i]||"•")+' <span class="player-name">'+safe(r.name)+'</span></span><span class="muted">'+format(r.value)+'</span></div>').join("")
+  :'<p>No data yet.</p>')+'</div>';
+}
+
+function renderHall(){
+ const box=document.getElementById("hallPanel");
+ if(!members.length){box.innerHTML="";return}
+ box.innerHTML='<h2>🏆 Hall of Fame</h2><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px">'
+  +boardHtml("⚡ Top Power",topBy(playerPower,5))
+  +boardHtml("⚔️ Top Kills",topBy(playerKills,5))
+  +'</div>';
+}
+
+function renderNextEvent(){
+ const slot=document.getElementById("nextEventSlot");
+ const now=Date.now();
+ const ev=[...eventData.events]
+  .filter(e=>{const t=new Date(e.event_date).getTime();return Number.isFinite(t)&&t>now-2*3600000})
+  .sort((a,b)=>new Date(a.event_date)-new Date(b.event_date))[0];
+ if(!ev){slot.innerHTML="";return}
+ const t=new Date(ev.event_date).getTime();
+ slot.innerHTML='<div class="panel"><div class="row"><div><div class="muted small">NEXT EVENT</div><strong>'+safe(ev.event_name)+'</strong><div class="warning" id="nextEventCountdown" data-time="'+t+'">'+countdownText(t-now)+'</div></div><button class="primary" type="button" id="nextEventBtn">See details &amp; sign up</button></div></div>';
+ document.getElementById("nextEventBtn").addEventListener("click",()=>showTab("events",document.querySelectorAll("nav button")[2]));
+}
+
+var hallSig="";
+setInterval(()=>{
+ const sig=members.length+"|"+eventData.events.length;
+ if(sig!==hallSig){hallSig=sig;renderHall();renderNextEvent();}
+ const el=document.getElementById("nextEventCountdown");
+ if(el)el.textContent=countdownText(Number(el.dataset.time)-Date.now());
+},1000);
 </script>
 </body>
 </html>
