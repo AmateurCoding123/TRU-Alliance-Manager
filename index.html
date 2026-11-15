@@ -599,6 +599,20 @@ setInterval(()=>{
  if(!el||!el.dataset.time)return;
  el.textContent=countdownText(Number(el.dataset.time)-Date.now());
 },1000);
+ (function(){
+ if(window.matchMedia("(display-mode: standalone)").matches||navigator.standalone)return;
+ const ua=navigator.userAgent||"";
+ const ios=/iPhone|iPad|iPod/i.test(ua);
+ const android=/Android/i.test(ua);
+ const iosSteps='<strong>iPhone / iPad (Safari):</strong><ol><li>Tap the <strong>Share</strong> button (the square with an arrow).</li><li>Scroll down and tap <strong>Add to Home Screen</strong>.</li><li>Tap <strong>Add</strong>.</li></ol><p class="muted small">Use Safari. Other iPhone browsers do not show this option.</p>';
+ const androidSteps='<strong>Android (Chrome):</strong><ol><li>Tap the <strong>three dots</strong> at the top right.</li><li>Tap <strong>Add to Home screen</strong> or <strong>Install app</strong>.</li><li>Tap <strong>Add</strong>.</li></ol>';
+ const steps=ios?iosSteps:android?androidSteps:iosSteps+androidSteps;
+ document.querySelector("#dashboard .stats").insertAdjacentHTML("afterend",
+  '<div class="panel" id="installPanel"><div class="row"><strong>📱 Get TRU on your phone</strong><button class="primary" type="button" id="installToggle">Show me how</button></div><div id="installSteps" class="hidden" style="margin-top:12px">'+steps+'</div></div>');
+ document.getElementById("installToggle").addEventListener("click",function(){
+  document.getElementById("installSteps").classList.toggle("hidden");
+ });
+})();
 </script>
 </body>
 </html>
