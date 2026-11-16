@@ -780,5 +780,24 @@ setInterval(()=>{
     navigator.serviceWorker.register("/sw.js");
   }
 </script>
+ <script>
+let installPrompt=null;
+window.addEventListener("beforeinstallprompt",e=>{
+  e.preventDefault();
+  installPrompt=e;
+  document.querySelectorAll("button").forEach(b=>{
+    if(/show me how/i.test(b.textContent))b.textContent="Install app";
+  });
+});
+document.addEventListener("click",e=>{
+  const b=e.target.closest("button");
+  if(!b||!installPrompt)return;
+  if(!/(show me how|install app)/i.test(b.textContent))return;
+  e.preventDefault();
+  e.stopImmediatePropagation();
+  installPrompt.prompt();
+  installPrompt.userChoice.finally(()=>{installPrompt=null});
+},true);
+ </script>
 </body>
 </html>
