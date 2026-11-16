@@ -800,16 +800,5 @@ document.addEventListener("click",e=>{
   installPrompt.userChoice.finally(()=>{installPrompt=null});
 },true);
  </script>
-<script>
-setInterval(()=>{
-  if(!members.length||document.getElementById("dbgDyls"))return;
-  const hits=members.filter(m=>["Dyls","po786wer"].includes(playerName(m)));
-  const pre=document.createElement("pre");
-  pre.id="dbgDyls";
-  pre.style.cssText="white-space:pre-wrap;word-break:break-all;font-size:11px;color:#9ba2b4;padding:15px";
-  pre.textContent=JSON.stringify(hits,null,1).slice(0,6000);
-  document.querySelector("footer").before(pre);
-},1000);
-</script>
 </body>
 </html>
