@@ -800,5 +800,19 @@ document.addEventListener("click",e=>{
   installPrompt.userChoice.finally(()=>{installPrompt=null});
 },true);
  </script>
+<script>
+(function(){
+  const s=document.createElement("style");
+  s.textContent=".stats .card:nth-child(3){display:none}";
+  document.head.appendChild(s);
+  setInterval(()=>{
+    document.querySelectorAll("#hallPanel .card").forEach(c=>{
+      if(c.textContent.includes("Top Kills"))c.style.display="none";
+    });
+    const o=document.querySelector('#detailSelect option[value="kills"]');
+    if(o)o.remove();
+  },500);
+})();
+</script>
 </body>
 </html>
