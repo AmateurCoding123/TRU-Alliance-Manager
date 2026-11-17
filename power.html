@@ -13,7 +13,7 @@ h1,h2{color:#e6c778;margin:0 0 6px}
 h1{letter-spacing:3px}
 a{color:#e6c778}
 .muted{color:#9ba2b4}
-main{padding:15px;max-width:900px;margin:auto}
+main{padding:8px;max-width:900px;margin:auto}
 .panel{background:#171d2a;border:1px solid #34394a;border-radius:13px;padding:14px;margin-bottom:12px}
 .buttons{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
 button{background:#1a2030;color:#d9c58f;border:1px solid #51472f;padding:11px 16px;border-radius:9px;cursor:pointer}
@@ -25,11 +25,11 @@ input{background:#0b0d13;border:1px solid #51472f;color:#fff;padding:11px;border
 .stat span{font-size:12px;color:#9ba2b4}
 .table-scroll{overflow-x:auto}
 table{width:100%;border-collapse:collapse}
-th,td{padding:10px 8px;border-bottom:1px solid #34394a;text-align:left;white-space:nowrap}
-th{color:#e6c778;font-size:12px;text-transform:uppercase}
+th,td{padding:9px 3px;border-bottom:1px solid #34394a;text-align:left;white-space:nowrap;font-size:13px}
+th{color:#e6c778;font-size:10px;text-transform:uppercase}
 td.num,th.num{text-align:right}
-td.rank{color:#9ba2b4;width:34px}
-td.name{font-weight:bold;white-space:normal;min-width:130px}
+td.rank{color:#9ba2b4;width:22px}
+td.name{font-weight:bold;white-space:normal;word-break:break-word}
 .up{color:#8bd49a}.down{color:#ff9999}.flat,.new{color:#9ba2b4}
 .error{color:#ff9999}
 </style>
@@ -56,7 +56,7 @@ td.name{font-weight:bold;white-space:normal;min-width:130px}
  <div class="stat"><b id="sSleep">--</b><span>😴 No growth</span></div>
 </div>
 <input id="search" placeholder="Search members...">
-<div class="panel table-scroll" style="margin-top:12px">
+<div class="panel table-scroll" style="margin-top:12px;padding:4px 6px">
  <table>
   <thead><tr><th>#</th><th>Name</th><th class="num">Power</th><th class="num">Change</th><th class="num">%</th></tr></thead>
   <tbody id="rows"><tr><td colspan="5">Loading...</td></tr></tbody>
@@ -65,6 +65,7 @@ td.name{font-weight:bold;white-space:normal;min-width:130px}
 </main>
 <script>
 let days = 1, members = [];
+if (window.self !== window.top) document.querySelector("header").style.display = "none";
 
 function esc(v){const s=document.createElement("span");s.textContent=String(v??"");return s.innerHTML}
 function fmt(n){
