@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0b0d13">
+<title>TRU Power Growth</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#0b0d13;color:#eee5cb;font-family:Arial,sans-serif}
+header{padding:20px 16px;background:#151925;border-bottom:1px solid #92783d}
+h1,h2{color:#e6c778;margin:0 0 6px}
+h1{letter-spacing:3px}
+a{color:#e6c778}
+.muted{color:#9ba2b4}
+main{padding:15px;max-width:900px;margin:auto}
+.panel{background:#171d2a;border:1px solid #34394a;border-radius:13px;padding:14px;margin-bottom:12px}
+.buttons{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+button{background:#1a2030;color:#d9c58f;border:1px solid #51472f;padding:11px 16px;border-radius:9px;cursor:pointer}
+button.active{background:#8b7139;color:#fff}
+input{background:#0b0d13;border:1px solid #51472f;color:#fff;padding:11px;border-radius:8px;width:100%;font:inherit}
+.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:12px}
+.stat{background:#171d2a;border:1px solid #34394a;border-radius:12px;padding:12px}
+.stat b{display:block;font-size:clamp(16px,4.6vw,22px);color:#e6c778}
+.stat span{font-size:12px;color:#9ba2b4}
+.table-scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+th,td{padding:10px 8px;border-bottom:1px solid #34394a;text-align:left;white-space:nowrap}
+th{color:#e6c778;font-size:12px;text-transform:uppercase}
+td.num,th.num{text-align:right}
+td.rank{color:#9ba2b4;width:34px}
+td.name{font-weight:bold;white-space:normal;min-width:130px}
+.up{color:#8bd49a}.down{color:#ff9999}.flat,.new{color:#9ba2b4}
+.error{color:#ff9999}
+</style>
+</head>
+<body>
+<header>
+<h1>TRU</h1>
+<div class="muted">Power growth · Kingdom 2443</div>
+<div style="margin-top:8px"><a href="index.html">← Back to Alliance Manager</a></div>
+</header>
+<main>
+<div class="panel">
+ <strong>Compare with</strong>
+ <div class="buttons">
+  <button data-days="1" class="active">Yesterday</button>
+  <button data-days="7">7 days ago</button>
+  <button data-days="30">30 days ago</button>
+ </div>
+ <div id="note" class="muted">Loading...</div>
+</div>
+<div class="stats">
+ <div class="stat"><b id="sTotal">--</b><span>Total growth</span></div>
+ <div class="stat"><b id="sGrowing">--</b><span>Growing</span></div>
+ <div class="stat"><b id="sSleep">--</b><span>😴 No growth</span></div>
+</div>
+<input id="search" placeholder="Search members...">
+<div class="panel table-scroll" style="margin-top:12px">
+ <table>
+  <thead><tr><th>#</th><th>Name</th><th class="num">Power</th><th class="num">Change</th><th class="num">%</th></tr></thead>
+  <tbody id="rows"><tr><td colspan="5">Loading...</td></tr></tbody>
+ </table>
+</div>
+</main>
+<script>
+let days = 1, members = [];
+
+function esc(v){const s=document.createElement("span");s.textContent=String(v??"");return s.innerHTML}
+function fmt(n){
+  const a=Math.abs(n);
+  if(a>=1e6)return (a/1e6).toFixed(1)+"M";
+  if(a>=1e3)return Math.round(a/1e3)+"K";
+  return String(Math.round(a));
+}
+function signed(n){return (n<0?"−":"+")+fmt(n)}
+function pctText(p){return (p<0?"-":"+")+Math.abs(p).toFixed(1)+"%"}
+
+function render(){
+  const q = document.getElementById("search").value.toLowerCase().trim();
+  const list = members.map((m,i)=>({...m,rank:i+1})).filter(m=>m.name.toLowerCase().includes(q));
+  document.getElementById("rows").innerHTML = list.length ? list.map(m=>{
+    let change="", pct="";
+    if(m.status==="up"||m.status==="down"){change=`<span class="${m.status}">${signed(m.change)}</span>`;pct=`<span class="${m.status}">${pctText(m.pct)}</span>`}
+    else if(m.status==="flat"){change='<span class="flat">😴 0</span>';pct='<span class="flat">+0.0%</span>'}
+    else if(m.status==="new"){change='<span class="new">new</span>'}
+    else {change='<span class="new">—</span>'}
+    return `<tr><td class="rank">${m.rank}</td><td class="name">${esc(m.name)}</td><td class="num">${fmt(m.power)}</td><td class="num">${change}</td><td class="num">${pct}</td></tr>`;
+  }).join("") : '<tr><td colspan="5">No members match.</td></tr>';
+}
+
+async function load(){
+  const note = document.getElementById("note");
+  note.className = "muted"; note.textContent = "Loading...";
+  try{
+    const r = await fetch("/api/power?days="+days, {cache:"no-store"});
+    const data = await r.json();
+    if(!r.ok) throw new Error(data.details || data.error || ("HTTP "+r.status));
+    members = data.members || [];
+    if(!data.baselineDate){
+      note.textContent = "Today's first snapshot has been saved. Come back tomorrow to see growth.";
+    }else{
+      let t = "Compared with the data from "+data.baselineDate+".";
+      if(data.baselineDate !== new Date(Date.now()-days*86400000).toISOString().slice(0,10))
+        t += " (Only "+data.snapshotDays+" day"+(data.snapshotDays===1?"":"s")+" of history saved so far.)";
+      note.textContent = t;
+    }
+    const cmp = members.filter(m=>m.status==="up"||m.status==="down"||m.status==="flat");
+    document.getElementById("sTotal").textContent = cmp.length ? signed(cmp.reduce((s,m)=>s+m.change,0)) : "--";
+    document.getElementById("sGrowing").textContent = cmp.length ? cmp.filter(m=>m.status==="up").length : "--";
+    document.getElementById("sSleep").textContent = cmp.length ? cmp.filter(m=>m.status==="flat").length : "--";
+    render();
+  }catch(e){
+    note.className = "error"; note.textContent = "Could not load: " + e.message;
+    document.getElementById("rows").innerHTML = '<tr><td colspan="5">No data.</td></tr>';
+  }
+}
+
+document.querySelectorAll("[data-days]").forEach(b=>b.addEventListener("click",()=>{
+  days = Number(b.dataset.days);
+  document.querySelectorAll("[data-days]").forEach(x=>x.classList.toggle("active",x===b));
+  load();
+}));
+document.getElementById("search").addEventListener("input",render);
+load();
+</script>
+</body>
+</html>
