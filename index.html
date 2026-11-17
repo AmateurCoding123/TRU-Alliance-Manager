@@ -85,8 +85,13 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <button onclick="showTab('members',this)">Members</button>
 <button onclick="showTab('events',this)">Events</button>
 <button onclick="showTab('battle',this)">Castle Battle</button>
- <button onclick="showTab('power',this)">Power Growth</button>
- <button onclick="showTab('academy',this)">Academy Growth</button>
+ <nav>
+<button class="active" onclick="showTab('dashboard',this)">Dashboard</button>
+<button onclick="showTab('members',this)">Members</button>
+<button onclick="showTab('events',this)">Events</button>
+<button onclick="showTab('battle',this)">Castle Battle</button>
+ <button class="hidden" data-leader onclick="showTab('power',this)">Power Growth</button>
+ <button class="hidden" data-leader onclick="showTab('academy',this)">Academy Growth</button>
 </nav>
 <main>
 <div id="dashboard" class="tab active">
@@ -820,6 +825,23 @@ document.addEventListener("click",e=>{
     const o=document.querySelector('#detailSelect option[value="kills"]');
     if(o)o.remove();
   },500);
+})();
+</script>
+
+<script>
+(function(){
+  const original=setAdminView;
+  setAdminView=function(){
+    original();
+    document.querySelectorAll("[data-leader]").forEach(b=>b.classList.toggle("hidden",!adminToken));
+    if(!adminToken){
+      const active=document.querySelector(".tab.active");
+      if(active&&(active.id==="power"||active.id==="academy")){
+        showTab("dashboard",document.querySelector("nav button"));
+      }
+    }
+  };
+  setAdminView();
 })();
 </script>
 </body>
