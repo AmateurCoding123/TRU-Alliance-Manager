@@ -1,7 +1,20 @@
-const MIGHTPULSE_API_URL = "https://mightpulse-api.peter-neighbour4.workers.dev";
 const SITE_ORIGIN = "https://tru-alliance-manager.pages.dev";
 const KEEP_DAYS = 90;
 const DAY = 86400000;
+
+// One entry per alliance. Each gets its own snapshot table, so rosters and
+// history never mix. "main" keeps the original table name, so existing data is untouched.
+const ALLIANCES = {
+  main: {
+    table: "power_snapshots",
+    source: "https://mightpulse-api.peter-neighbour4.workers.dev"
+  },
+  academy: {
+    table: "power_snapshots_academy",
+    // Same Worker, asking for the academy. Its tag is set in the Worker.
+    source: "https://mightpulse-api.peter-neighbour4.workers.dev?alliance=academy"
+  }
+};
 
 function normalise(value) {
   return String(value).normalize("NFKC").toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
@@ -27,8 +40,8 @@ function playerPower(member) {
   return Number.isFinite(n) ? n : null;
 }
 
-async function getLiveMembers() {
-  const response = await fetch(MIGHTPULSE_API_URL, {
+async function getLiveMembers(sourceUrl) {
+  const response = await fetch(sourceUrl, {
     headers: { Accept: "application/json", Origin: SITE_ORIGIN },
     signal: AbortSignal.timeout(12000),
     cache: "no-store"
@@ -57,29 +70,43 @@ export async function onRequest({ request, env }) {
   }
   const db = env.DB;
   try {
+    const params = new URL(request.url).searchParams;
+    const key = params.get("alliance") || "main";
+    const alliance = Object.prototype.hasOwnProperty.call(ALLIANCES, key) ? ALLIANCES[key] : null;
+    if (!alliance) {
+      return Response.json({ error: "Unknown alliance" }, { status: 400 });
+    }
+    if (!alliance.source) {
+      return Response.json(
+        { error: "Not set up", details: "No MightPulse source URL is configured for '" + key + "' yet." },
+        { status: 501 }
+      );
+    }
+    const table = alliance.table; // from the fixed list above, never from user input
+
     // Creates the snapshot table the first time; does nothing after that.
     await db.prepare(
-      "CREATE TABLE IF NOT EXISTS power_snapshots (snap_date TEXT NOT NULL, player_name TEXT NOT NULL, power INTEGER NOT NULL, PRIMARY KEY (snap_date, player_name))"
+      "CREATE TABLE IF NOT EXISTS " + table + " (snap_date TEXT NOT NULL, player_name TEXT NOT NULL, power INTEGER NOT NULL, PRIMARY KEY (snap_date, player_name))"
     ).run();
 
-    const asked = Number(new URL(request.url).searchParams.get("days"));
+    const asked = Number(params.get("days"));
     const days = [1, 7, 30].includes(asked) ? asked : 1;
 
-    const live = await getLiveMembers();
+    const live = await getLiveMembers(alliance.source);
     const today = dayString(Date.now());
 
     // Save (or refresh) today's snapshot.
     const insert = db.prepare(
-      "INSERT OR REPLACE INTO power_snapshots (snap_date, player_name, power) VALUES (?, ?, ?)"
+      "INSERT OR REPLACE INTO " + table + " (snap_date, player_name, power) VALUES (?, ?, ?)"
     );
     for (let i = 0; i < live.length; i += 50) {
       await db.batch(live.slice(i, i + 50).map(m => insert.bind(today, m.name, Math.round(m.power))));
     }
-    await db.prepare("DELETE FROM power_snapshots WHERE snap_date < ?")
+    await db.prepare("DELETE FROM " + table + " WHERE snap_date < ?")
       .bind(dayString(Date.now() - KEEP_DAYS * DAY)).run();
 
     // Choose the earlier day to compare against.
-    const datesResult = await db.prepare("SELECT DISTINCT snap_date FROM power_snapshots ORDER BY snap_date ASC").all();
+    const datesResult = await db.prepare("SELECT DISTINCT snap_date FROM " + table + " ORDER BY snap_date ASC").all();
     const dates = (datesResult.results || []).map(r => r.snap_date);
     const earlier = dates.filter(d => d < today);
     const target = dayString(Date.now() - days * DAY);
@@ -90,7 +117,7 @@ export async function onRequest({ request, env }) {
 
     let baseline = new Map();
     if (baselineDate) {
-      const rows = await db.prepare("SELECT player_name, power FROM power_snapshots WHERE snap_date = ?")
+      const rows = await db.prepare("SELECT player_name, power FROM " + table + " WHERE snap_date = ?")
         .bind(baselineDate).all();
       for (const r of rows.results || []) baseline.set(normalise(r.player_name), r.power);
     }
