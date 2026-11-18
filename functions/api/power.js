@@ -43,7 +43,7 @@ function playerPower(member) {
 async function getLiveMembers(sourceUrl) {
   const response = await fetch(sourceUrl, {
     headers: { Accept: "application/json", Origin: SITE_ORIGIN },
-    signal: AbortSignal.timeout(12000),
+    signal: AbortSignal.timeout(25000),
     cache: "no-store"
   });
   if (!response.ok) throw new Error("MightPulse HTTP " + response.status);
