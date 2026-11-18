@@ -19,7 +19,7 @@ function playerName(member) {
 async function getLiveMembers() {
   const response = await fetch(MIGHTPULSE_API_URL, {
     headers: { Accept: "application/json", Origin: SITE_ORIGIN },
-    signal: AbortSignal.timeout(12000),
+    signal: AbortSignal.timeout(25000),
     cache: "no-store"
   });
   if (!response.ok) throw new Error("MightPulse HTTP " + response.status);
