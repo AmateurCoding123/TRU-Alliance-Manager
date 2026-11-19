@@ -433,7 +433,7 @@ async function memberSignup(eventId,player){
  if(!player){alert("Please select your in-game name first.");return}
  let pin="";
  if(eventData.pinRequired&&!adminToken){
-  pin=savedPin()||(prompt("Enter the alliance PIN to sign up.\n(Ask a leader if you don't know it.)")||"").trim();
+  pin=savedPin()||(prompt("Enter the alliance PIN to sign up.\n(Ask Gassed if you don't know it.)")||"").trim();
   if(!pin)return;
  }
  try{

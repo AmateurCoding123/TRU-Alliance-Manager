@@ -82,7 +82,7 @@ async function checkMemberPin(request, db, env, given) {
   for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
   if (!pin || pin.length > 20 || diff !== 0) {
     await db.prepare("INSERT INTO login_failures (ip, at) VALUES (?, ?)").bind(ip, now).run();
-    return Response.json({ error: "Wrong alliance PIN. Ask a leader for the PIN.", code: "bad_pin" }, { status: 403 });
+    return Response.json({ error: "Wrong alliance PIN. Ask Gassed for the PIN.", code: "bad_pin" }, { status: 403 });
   }
   return null;
 }
