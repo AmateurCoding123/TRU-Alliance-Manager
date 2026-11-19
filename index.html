@@ -346,7 +346,11 @@ async function apiJson(url,options={}){
   renderEvents();renderBattle();
   throw new Error("Your leadership login has expired. Please log in again.");
  }
- if(!response.ok)throw new Error(body.error||body.message||("Request failed (HTTP "+response.status+")"));
+ if(!response.ok){
+  const error=new Error(body.error||body.message||("Request failed (HTTP "+response.status+")"));
+  error.code=body.code;
+  throw error;
+ }
  if(body.success===false)throw new Error(body.error||"The request could not be completed.");
  return body;
 }
@@ -361,7 +365,7 @@ function renderRoster(){
    const option=document.createElement("option");option.value=name;option.textContent=name;select.appendChild(option);
   });
   if(eventData.members.includes(previous))select.value=previous;
-  setMessage("rosterMessage",eventData.members.length+" alliance members available. Select your name from the list.");
+  setMessage("rosterMessage",eventData.members.length+" alliance members available. Select your name from the list."+(eventData.pinRequired&&!savedPin()?" You'll need the alliance PIN the first time you sign up.":""));
  }else{
   setMessage("rosterMessage","The live member list could not be loaded. Sign-ups are disabled until it is available.","status bad");
  }
@@ -370,7 +374,7 @@ async function loadEvents(){
  const status=document.getElementById("eventsStatus");status.textContent="Loading events...";
  try{
   const data=await apiJson(EVENTS_URL,{method:"GET",headers:{"Cache-Control":"no-cache"}});
-  eventData={events:Array.isArray(data.events)?data.events:[],signups:Array.isArray(data.signups)?data.signups:[],members:Array.isArray(data.members)?data.members:[],rosterAvailable:data.rosterAvailable===true};
+  eventData={events:Array.isArray(data.events)?data.events:[],signups:Array.isArray(data.signups)?data.signups:[],members:Array.isArray(data.members)?data.members:[],rosterAvailable:data.rosterAvailable===true,pinRequired:data.pinRequired===true};
   renderRoster();renderEvents();renderBattle();renderNextEvent();
   if(adminToken){renderAttendanceForm();renderAttendanceSummary();}
   status.textContent="Events updated";status.className="status good";
@@ -420,19 +424,31 @@ function eventSignups(eventId){return eventData.signups.filter(s=>String(s.event
  }).join("");
 }
 
-async function signup(eventId){
- const player=selectedPlayer();
+// The shared alliance PIN. Asked for once, then remembered on this device.
+const PIN_KEY="truMemberPin";
+function savedPin(){try{return localStorage.getItem(PIN_KEY)||""}catch(_){return ""}}
+function rememberPin(pin){try{pin?localStorage.setItem(PIN_KEY,pin):localStorage.removeItem(PIN_KEY)}catch(_){}}
+
+async function memberSignup(eventId,player){
  if(!player){alert("Please select your in-game name first.");return}
+ let pin="";
+ if(eventData.pinRequired&&!adminToken){
+  pin=savedPin()||(prompt("Enter the alliance PIN to sign up.\n(Ask a leader if you don't know it.)")||"").trim();
+  if(!pin)return;
+ }
  try{
   await apiJson(EVENTS_URL,{
    method:"POST",
-   body:JSON.stringify({action:"signup",event_id:eventId,player_name:player})
+   body:JSON.stringify({action:"signup",event_id:eventId,player_name:player,pin})
   });
+  if(pin)rememberPin(pin);
   await loadEvents();
  }catch(error){
+  if(error.code==="bad_pin")rememberPin("");
   alert(error.message);
  }
 }
+function signup(eventId){return memberSignup(eventId,selectedPlayer())}
 
 // Sign-up list for an event. Leaders get a ✕ button to remove someone.
 function signupList(eventId,signups){
@@ -629,14 +645,7 @@ function renderBattle(){
   ?`<button class="secondary" disabled>✓ You're signed up</button>`
   :`<button class="primary" onclick="battleAction('signup',${Number(ev.id)})" ${!player||!eventData.rosterAvailable?"disabled":""}>Sign up</button>`;
 }
-async function battleAction(action,eventId){
- const player=document.getElementById("battlePlayer").value;
- if(!player){alert("Please choose your in-game name first.");return}
- try{
-  await apiJson(EVENTS_URL,{method:"POST",body:JSON.stringify({action,event_id:eventId,player_name:player})});
-  await loadEvents();
- }catch(error){alert(error.message)}
-}
+function battleAction(action,eventId){return memberSignup(eventId,document.getElementById("battlePlayer").value)}
 // Tick the countdowns once a second.
 setInterval(()=>{
  ["battleCountdown","nextEventCountdown"].forEach(id=>{

@@ -54,6 +54,39 @@ async function isAdmin(request, db) {
   return !!session;
 }
 
+const PIN_WINDOW_MS = 15 * 60000; // count wrong member PINs over 15 minutes
+const MAX_PIN_FAILURES = 10;       // per IP address in that window
+
+async function sha256Hex(text) {
+  const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+// Checks the shared alliance PIN (the MEMBER_PIN secret). Returns null when the
+// PIN is right, or an error Response. Wrong guesses are limited per IP address,
+// using the same table as wrong leadership passwords (marked "pin:").
+async function checkMemberPin(request, db, env, given) {
+  const ip = "pin:" + (request.headers.get("CF-Connecting-IP") || "unknown");
+  const now = Date.now();
+  await db.batch([
+    db.prepare("CREATE TABLE IF NOT EXISTS login_failures (ip TEXT NOT NULL, at INTEGER NOT NULL)"),
+    db.prepare("DELETE FROM login_failures WHERE at < ?").bind(now - PIN_WINDOW_MS)
+  ]);
+  const recent = await db.prepare("SELECT COUNT(*) AS n FROM login_failures WHERE ip = ?").bind(ip).first();
+  if ((recent?.n || 0) >= MAX_PIN_FAILURES) {
+    return Response.json({ error: "Too many wrong PINs. Please wait 15 minutes and try again." }, { status: 429 });
+  }
+  const pin = String(given || "").trim();
+  const [a, b] = await Promise.all([sha256Hex(pin), sha256Hex(String(env.MEMBER_PIN).trim())]);
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  if (!pin || pin.length > 20 || diff !== 0) {
+    await db.prepare("INSERT INTO login_failures (ip, at) VALUES (?, ?)").bind(ip, now).run();
+    return Response.json({ error: "Wrong alliance PIN. Ask a leader for the PIN.", code: "bad_pin" }, { status: 403 });
+  }
+  return null;
+}
+
 function readEvent(data) {
   const name = String(data.event_name || "").trim();
   const date = String(data.event_date || "").trim();
@@ -85,7 +118,9 @@ export async function onRequest({ request, env }) {
         members: liveMembers,
         rosterAvailable,
         rosterError,
-        rosterDiagnostics
+        rosterDiagnostics,
+        // Sign-ups need the alliance PIN once the MEMBER_PIN secret is set.
+        pinRequired: !!env.MEMBER_PIN
       });
     }
 
@@ -155,6 +190,12 @@ export async function onRequest({ request, env }) {
     }
 
     let memberName = submittedName;
+
+    // Members need the shared alliance PIN to sign up; logged-in leaders don't.
+    if (data.action === "signup" && env.MEMBER_PIN && !(await isAdmin(request, db))) {
+      const refused = await checkMemberPin(request, db, env, data.pin);
+      if (refused) return refused;
+    }
 
     if (data.action === "signup") {
       const roster = await getLiveMembers();

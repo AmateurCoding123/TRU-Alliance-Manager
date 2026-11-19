@@ -13,7 +13,7 @@ data comes from the MightPulse worker.
 | `power-academy.html` | Redirect to `power.html?alliance=academy`, kept for old links |
 | `sw.js`, `manifest.webmanifest`, `icon-*.png` | Lets members install the site as an app |
 | `functions/api/admin.js` | Leadership login and logout |
-| `functions/api/events.js` | Events and sign-ups (anyone signs up, only leaders cancel) |
+| `functions/api/events.js` | Events and sign-ups (members sign up with the alliance PIN, only leaders cancel) |
 | `functions/api/attendance.js` | Attendance log (leaders only) |
 | `functions/api/power.js` | Daily power snapshots and growth (leaders only) |
 | `schema.sql` | Every database table |
@@ -22,6 +22,9 @@ data comes from the MightPulse worker.
 
 - **D1 binding:** `DB`
 - **Secret:** `ADMIN_PASSWORD`, the shared leadership password
+- **Secret:** `MEMBER_PIN`, the alliance PIN members enter to sign up for events.
+  Members are asked for it once per device. Logged-in leaders don't need it.
+  If it isn't set, sign-ups work without a PIN.
 
 ## Setting up a new database
 
