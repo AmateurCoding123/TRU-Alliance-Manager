@@ -331,6 +331,15 @@ function selectedPlayer(){return document.getElementById("eventPlayer").value}
 async function apiJson(url,options={}){
  const response=await fetch(url,{...options,headers:{"Accept":"application/json","Content-Type":"application/json",...(options.headers||{})}});
  let body={};try{body=await response.json()}catch(_){}
+ const sentToken=/^Bearer /.test((options.headers||{}).Authorization||"");
+ if(response.status===401&&sentToken&&adminToken){
+  // The leadership login has expired on the server: log out here too.
+  adminToken="";
+  sessionStorage.removeItem("truAdminToken");
+  setAdminView();
+  if(typeof renderEvents==="function")renderEvents();
+  throw new Error("Your leadership login has expired. Please log in again.");
+ }
  if(!response.ok)throw new Error(body.error||body.message||("Request failed (HTTP "+response.status+")"));
  if(body.success===false)throw new Error(body.error||"The request could not be completed.");
  return body;
@@ -459,6 +468,8 @@ document.getElementById("adminLoginForm").addEventListener("submit",async e=>{
 });
 
 document.getElementById("logoutButton").addEventListener("click",()=>{
+ // End the login on the server as well (best effort; the page logs out regardless).
+ if(adminToken)fetch(ADMIN_URL,{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+adminToken},body:JSON.stringify({action:"logout"})}).catch(()=>{});
  adminToken="";
  sessionStorage.removeItem("truAdminToken");
  setAdminView();
@@ -504,10 +515,18 @@ document.getElementById("eventForm").addEventListener("submit",async e=>{
  button.disabled=true;
  setMessage("adminMessage","Saving event...");
 
+ // The date box gives local time with no timezone; save it as UTC so
+ // members in every timezone see the same moment.
+ const localDate=new Date(document.getElementById("eventDate").value);
+ if(Number.isNaN(localDate.getTime())){
+  setMessage("adminMessage","Please enter a valid date and time.","status bad");
+  button.disabled=false;
+  return;
+ }
  const payload={
   action:editingEventId?"update_event":"create_event",
   event_name:document.getElementById("eventName").value.trim(),
-  event_date:document.getElementById("eventDate").value,
+  event_date:localDate.toISOString(),
   description:document.getElementById("eventDescription").value.trim()
  };
 
