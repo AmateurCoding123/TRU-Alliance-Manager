@@ -17,6 +17,9 @@ data comes from the MightPulse worker.
 | `functions/api/attendance.js` | Attendance log (leaders only) |
 | `functions/api/power.js` | Daily power snapshots and growth (leaders only) |
 | `functions/_lib/shared.js` | Shared API code: leadership-login check, MightPulse address and fetch, name matching |
+| `functions/_lib/power.js` | Power snapshot code shared by `/api/power` and `/api/snapshot` |
+| `functions/api/snapshot.js` | Saves today's power for both alliances; called by the daily Worker |
+| `cron-worker/` | Separate scheduled Worker (`tru-daily-snapshot`) that calls `/api/snapshot` twice a day |
 | `schema.sql` | Every database table |
 
 ## Cloudflare settings
@@ -26,6 +29,15 @@ data comes from the MightPulse worker.
 - **Secret:** `MEMBER_PIN`, the alliance PIN members enter to sign up for events.
   Members are asked for it once per device. Logged-in leaders don't need it.
   If it isn't set, sign-ups work without a PIN.
+- **Secret:** `SNAPSHOT_KEY`, a long random key. The same value goes on the
+  `tru-daily-snapshot` Worker, so only that Worker can take the daily snapshot.
+
+## Daily power snapshot
+
+`cron-worker/worker.js` is a separate Worker, not part of the Pages site. It runs
+at 12:17 and 23:47 UTC and calls `/api/snapshot`. To set it up in the dashboard:
+create a Worker named `tru-daily-snapshot`, paste in `worker.js`, add the
+`SNAPSHOT_KEY` secret, and add the two Cron Triggers `17 12 * * *` and `47 23 * * *`.
 
 ## Setting up a new database
 

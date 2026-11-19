@@ -1,0 +1,10 @@
+# Only needed if deploying with the wrangler command line instead of the dashboard:
+#   cd cron-worker && npx wrangler deploy && npx wrangler secret put SNAPSHOT_KEY
+name = "tru-daily-snapshot"
+main = "worker.js"
+compatibility_date = "2026-11-01"
+
+[triggers]
+# 12:17 and 23:47 UTC every day. The later run overwrites the earlier one,
+# so each day keeps its end-of-day power; the midday run is a backup.
+crons = ["17 12 * * *", "47 23 * * *"]
