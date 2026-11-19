@@ -173,7 +173,7 @@ export async function onRequest({ request, env }) {
 
     // Members have no logins, so only leaders may remove a sign-up.
     if (data.action === "cancel" && !(await isAdmin(request, db))) {
-      return Response.json({ error: "Only leaders can cancel sign-ups. Please ask a leader." }, { status: 401 });
+      return Response.json({ error: "Only leaders can cancel sign-ups. Please ask Gassed." }, { status: 401 });
     }
 
     const eventId = Number(data.event_id);

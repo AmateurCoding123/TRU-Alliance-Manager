@@ -453,7 +453,7 @@ function signup(eventId){return memberSignup(eventId,selectedPlayer())}
 // Sign-up list for an event. Leaders get a ✕ button to remove someone.
 function signupList(eventId,signups){
  if(!signups.length)return '<p class="muted">Nobody has signed up yet.</p>';
- const note=adminToken?"":'<p class="muted small">Need to drop out? Ask a leader to remove your name.</p>';
+ const note=adminToken?"":'<p class="muted small">Need to drop out? Ask Gassed to remove your name.</p>';
  return '<ul>'+signups.map((s,i)=>'<li>'+safe(s.player_name)+(adminToken
   ?' <button class="danger small" type="button" style="padding:2px 8px;margin-left:6px" aria-label="Remove '+safe(s.player_name)+'" onclick="removeSignup('+Number(eventId)+','+i+')">✕</button>'
   :'')+'</li>').join("")+'</ul>'+note;
