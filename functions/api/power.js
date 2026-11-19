@@ -60,6 +60,19 @@ async function getLiveMembers(sourceUrl) {
   return [...byName.values()];
 }
 
+async function isAdmin(request, db) {
+  const auth = request.headers.get("Authorization") || "";
+  const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
+  if (!token || token.length > 100) return false;
+  const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(token));
+  const tokenHash = Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, "0")).join("");
+  const session = await db
+    .prepare("SELECT token_hash FROM admin_sessions WHERE token_hash = ? AND expires_at > ?")
+    .bind(tokenHash, Date.now())
+    .first();
+  return !!session;
+}
+
 function dayString(ms) {
   return new Date(ms).toISOString().slice(0, 10);
 }
@@ -70,6 +83,9 @@ export async function onRequest({ request, env }) {
   }
   const db = env.DB;
   try {
+    if (!(await isAdmin(request, db))) {
+      return Response.json({ error: "Leadership login required" }, { status: 401, headers: { "Cache-Control": "no-store" } });
+    }
     const params = new URL(request.url).searchParams;
     const key = params.get("alliance") || "main";
     const alliance = Object.prototype.hasOwnProperty.call(ALLIANCES, key) ? ALLIANCES[key] : null;
