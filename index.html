@@ -340,7 +340,7 @@ async function apiJson(url,options={}){
   adminToken="";
   sessionStorage.removeItem("truAdminToken");
   setAdminView();
-  if(typeof renderEvents==="function")renderEvents();
+  renderEvents();renderBattle();
   throw new Error("Your leadership login has expired. Please log in again.");
  }
  if(!response.ok)throw new Error(body.error||body.message||("Request failed (HTTP "+response.status+")"));
@@ -399,11 +399,11 @@ function eventSignups(eventId){return eventData.signups.filter(s=>String(s.event
     ${event.description?`<div class="event-description">${safe(event.description)}</div>`:""}
     <div class="attendance">
      <strong>Attendance (${signups.length})</strong>
-     ${signups.length?`<ul>${signups.map(s=>`<li>${safe(s.player_name)}</li>`).join("")}</ul>`:'<p class="muted">Nobody has signed up yet.</p>'}
+     ${signupList(event.id,signups)}
     </div>
     <div class="event-actions">
      ${alreadySigned
-      ?`<button class="danger" onclick="cancelSignup(${Number(event.id)})">Cancel my place</button>`
+      ?`<button class="secondary" disabled>✓ You're signed up</button>`
       :`<button class="primary" onclick="signup(${Number(event.id)})" ${!player||!eventData.rosterAvailable?"disabled":""}>Sign up</button>`}
      ${adminToken?`
       <button class="secondary" onclick="editEvent(${Number(event.id)})">Edit</button>
@@ -429,14 +429,24 @@ async function signup(eventId){
  }
 }
 
-async function cancelSignup(eventId){
- const player=selectedPlayer();
- if(!player){alert("Please select your in-game name first.");return}
- if(!confirm("Are you sure you want to cancel your place?"))return;
+// Sign-up list for an event. Leaders get a ✕ button to remove someone.
+function signupList(eventId,signups){
+ if(!signups.length)return '<p class="muted">Nobody has signed up yet.</p>';
+ const note=adminToken?"":'<p class="muted small">Need to drop out? Ask a leader to remove your name.</p>';
+ return '<ul>'+signups.map((s,i)=>'<li>'+safe(s.player_name)+(adminToken
+  ?' <button class="danger small" type="button" style="padding:2px 8px;margin-left:6px" aria-label="Remove '+safe(s.player_name)+'" onclick="removeSignup('+Number(eventId)+','+i+')">✕</button>'
+  :'')+'</li>').join("")+'</ul>'+note;
+}
+
+async function removeSignup(eventId,index){
+ const s=eventSignups(eventId)[index];
+ if(!s||!adminToken)return;
+ if(!confirm("Remove "+s.player_name+" from this event?"))return;
  try{
   await apiJson(EVENTS_URL,{
    method:"POST",
-   body:JSON.stringify({action:"cancel",event_id:eventId,player_name:player})
+   headers:{"Authorization":"Bearer "+adminToken},
+   body:JSON.stringify({action:"cancel",event_id:eventId,player_name:s.player_name})
   });
   await loadEvents();
  }catch(error){
@@ -461,7 +471,7 @@ document.getElementById("adminLoginForm").addEventListener("submit",async e=>{
   sessionStorage.setItem("truAdminToken",adminToken);
   document.getElementById("adminPassword").value="";
   setAdminView();
-  renderEvents();
+  renderEvents();renderBattle();
   setMessage("loginMessage","Logged in successfully.","status good");
  }catch(error){
   setMessage("loginMessage",error.message,"status bad");
@@ -477,7 +487,7 @@ document.getElementById("logoutButton").addEventListener("click",()=>{
  sessionStorage.removeItem("truAdminToken");
  setAdminView();
  resetEventForm();
- renderEvents();
+ renderEvents();renderBattle();
 });
 
 function resetEventForm(){
@@ -604,7 +614,7 @@ function renderBattle(){
   <select id="battlePlayer" onchange="renderBattle()"></select>
   <div class="event-actions" id="battleActions"></div>
   <div class="attendance"><strong>Signed up (${signups.length})</strong>
-   ${signups.length?`<ul>${signups.map(s=>`<li>${safe(s.player_name)}</li>`).join("")}</ul>`:'<p class="muted">Nobody has signed up yet.</p>'}
+   ${signupList(ev.id,signups)}
   </div>`;
  const select=document.getElementById("battlePlayer");
  const first=document.createElement("option");first.value="";
@@ -615,13 +625,12 @@ function renderBattle(){
  const player=select.value;
  const signed=signups.some(s=>s.player_name===player);
  document.getElementById("battleActions").innerHTML=signed
-  ?`<button class="danger" onclick="battleAction('cancel',${Number(ev.id)})">Cancel my place</button>`
+  ?`<button class="secondary" disabled>✓ You're signed up</button>`
   :`<button class="primary" onclick="battleAction('signup',${Number(ev.id)})" ${!player||!eventData.rosterAvailable?"disabled":""}>Sign up</button>`;
 }
 async function battleAction(action,eventId){
  const player=document.getElementById("battlePlayer").value;
  if(!player){alert("Please choose your in-game name first.");return}
- if(action==="cancel"&&!confirm("Cancel your place in the battle?"))return;
  try{
   await apiJson(EVENTS_URL,{method:"POST",body:JSON.stringify({action,event_id:eventId,player_name:player})});
   await loadEvents();
