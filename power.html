@@ -36,7 +36,7 @@ td.name{font-weight:bold;white-space:normal;word-break:break-word}
 </head>
 <body>
 <header>
-<h1>TRU</h1>
+<h1 id="heading">TRU</h1>
 <div class="muted">Power growth · Kingdom 2443</div>
 <div style="margin-top:8px"><a href="index.html">← Back to Alliance Manager</a></div>
 </header>
@@ -64,6 +64,14 @@ td.name{font-weight:bold;white-space:normal;word-break:break-word}
 </div>
 </main>
 <script>
+// Which alliance to show: power.html (main) or power.html?alliance=academy.
+// The /api/power endpoint decides which values are allowed.
+const ALLIANCE = new URLSearchParams(location.search).get("alliance") || "main";
+if (ALLIANCE === "academy") {
+  document.title = "TRU Academy Power Growth";
+  document.getElementById("heading").textContent = "TRU ACADEMY";
+}
+
 let days = 1, members = [];
 if (window.self !== window.top) document.querySelector("header").style.display = "none";
 
@@ -103,7 +111,7 @@ async function load(){
     return;
   }
   try{
-    const r = await fetch("/api/power?days="+days, {cache:"no-store",headers:{"Authorization":"Bearer "+token}});
+    const r = await fetch("/api/power?alliance="+encodeURIComponent(ALLIANCE)+"&days="+days, {cache:"no-store",headers:{"Authorization":"Bearer "+token}});
     const data = await r.json();
     if (r.status === 401) {
       members = []; render();

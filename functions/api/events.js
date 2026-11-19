@@ -116,13 +116,19 @@ export async function onRequest({ request, env }) {
       if (data.action === "update_event") {
         const e = readEvent(data);
         if (!e.valid) return Response.json({ error: "Invalid event details" }, { status: 400 });
-        await db.prepare("UPDATE events SET event_name = ?, event_date = ?, description = ? WHERE id = ?")
+        const result = await db.prepare("UPDATE events SET event_name = ?, event_date = ?, description = ? WHERE id = ?")
           .bind(e.name, e.date, e.description, eventId).run();
+        if (!result.meta?.changes) return Response.json({ error: "Event not found" }, { status: 404 });
         return Response.json({ success: true });
       }
 
-      await db.prepare("DELETE FROM signups WHERE event_id = ?").bind(eventId).run();
-      await db.prepare("DELETE FROM events WHERE id = ?").bind(eventId).run();
+      // Remove the event with its sign-ups and attendance, all or nothing.
+      await db.batch([
+        db.prepare("CREATE TABLE IF NOT EXISTS attendance (event_id INTEGER NOT NULL, player_name TEXT NOT NULL, attended INTEGER NOT NULL, PRIMARY KEY (event_id, player_name))"),
+        db.prepare("DELETE FROM attendance WHERE event_id = ?").bind(eventId),
+        db.prepare("DELETE FROM signups WHERE event_id = ?").bind(eventId),
+        db.prepare("DELETE FROM events WHERE id = ?").bind(eventId)
+      ]);
       return Response.json({ success: true });
     }
 

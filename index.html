@@ -62,7 +62,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .hidden{display:none!important}
 .small{font-size:12px}
 @media(min-width:700px){
- .stats{grid-template-columns:repeat(4,minmax(0,1fr))}
+ .stats{grid-template-columns:repeat(3,minmax(0,1fr))}
  .filters{grid-template-columns:1fr}
  .detail-selector{max-width:400px}
  .form-grid.two{grid-template-columns:1fr 1fr;gap:12px}
@@ -94,7 +94,6 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <div class="stats">
  <div class="card"><div class="number" id="memberCount">--</div><p>Members</p></div>
  <div class="card"><div class="number" id="totalPower">--</div><p>Total Power</p></div>
- <div class="card"><div class="number" id="totalKills">--</div><p>Total Kills</p></div>
  <div class="card"><div class="number" id="updated">--</div><p>Last Updated</p></div>
 </div>
 <section>
@@ -115,7 +114,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <div class="detail-selector">
  <label for="detailSelect">Choose member detail to display</label>
  <select id="detailSelect" onchange="renderMembers()">
-  <option value="power">Power</option><option value="kills">Kills</option><option value="rank">Rank</option><option value="level">Town Centre Level (TC)</option>
+  <option value="power">Power</option><option value="rank">Rank</option><option value="level">Town Centre Level (TC)</option>
  </select>
 </div>
 <p id="memberCountText" class="status count"></p>
@@ -172,7 +171,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <iframe data-src="power.html" title="Power Growth" style="width:100%;height:1500px;border:0"></iframe>
 </div>
 <div id="academy" class="tab">
-<iframe data-src="power-academy.html" title="Academy Power Growth" style="width:100%;height:1500px;border:0"></iframe>
+<iframe data-src="power.html?alliance=academy" title="Academy Power Growth" style="width:100%;height:1500px;border:0"></iframe>
 </div>
 </main>
 <footer>TRU ALLIANCE MANAGER · KINGDOM 2443</footer>
@@ -221,7 +220,6 @@ function playerName(m){
  return value===null?"Unknown":String(value);
 }
 function playerPower(m){return getValue(m,["power","might","total_power","totalPower","player_power","combat_power","overall_power"])}
-function playerKills(m){return getValue(m,["kills","kill_points","killPoints","total_kills","totalKills","kill_count","killCount","troops_killed"])}
 function playerLevel(m){return getValue(m,["town_center_level","townCenterLevel","townhall_level","townHallLevel","tc_level","tcLevel","city_level","level"])}
 function playerRankNumber(m){const value=getValue(m,["alliance_rank","allianceRank","rank"]);return value===null?null:number(value)}
 function playerRankLabel(m){
@@ -257,7 +255,7 @@ function findArray(data){
  }
  return best;
 }
-const detailOptions={name:{label:"Player",sort:"name"},rank:{label:"Rank",sort:"rank"},power:{label:"Power",sort:"power"},kills:{label:"Kills",sort:"kills"},level:{label:"TC",sort:"level"}};
+const detailOptions={name:{label:"Player",sort:"name"},rank:{label:"Rank",sort:"rank"},power:{label:"Power",sort:"power"},level:{label:"TC",sort:"level"}};
 function sortBy(key){
  if(sortKey===key)sortDir=-sortDir;
  else{sortKey=key;sortDir=key==="name"?1:-1}
@@ -267,7 +265,7 @@ function renderMembers(){
  const search=(document.getElementById("search").value||"").toLowerCase().trim();
  const selected=document.getElementById("detailSelect").value;
  const detail=detailOptions[selected]||detailOptions.power;
- const rows=members.map(m=>({raw:m,name:playerName(m),rank:playerRankNumber(m),rankLabel:playerRankLabel(m),power:number(playerPower(m)),hasPower:playerPower(m)!==null,kills:number(playerKills(m)),hasKills:playerKills(m)!==null,level:number(playerLevel(m)),hasLevel:playerLevel(m)!==null}));
+ const rows=members.map(m=>({raw:m,name:playerName(m),rank:playerRankNumber(m),rankLabel:playerRankLabel(m),power:number(playerPower(m)),hasPower:playerPower(m)!==null,level:number(playerLevel(m)),hasLevel:playerLevel(m)!==null}));
  let filtered=rows.filter(r=>r.name.toLowerCase().includes(search));
  filtered.sort((a,b)=>{
   let x=a[sortKey],y=b[sortKey];
@@ -282,7 +280,6 @@ function renderMembers(){
  document.getElementById("memberRows").innerHTML=filtered.length?filtered.map(r=>{
   let value="--";
   if(selected==="power"&&r.hasPower)value=format(r.power);
-  if(selected==="kills"&&r.hasKills)value=format(r.kills);
   if(selected==="rank")value=safe(r.rankLabel);
   if(selected==="level"&&r.hasLevel)value=safe(r.level);
   return `<tr><td><span class="player-name">${safe(r.name)}</span></td><td>${value}</td></tr>`;
@@ -300,20 +297,17 @@ async function loadAlliance(){
   if(!newMembers.length){console.log("MIGHTPULSE RESPONSE:",data);throw new Error("Connected, but the member list could not be identified. Check API data structure.")}
   members=newMembers;
   const knownNames=members.filter(m=>playerName(m)!=="Unknown").length;
-  const knownKills=members.filter(m=>playerKills(m)!==null).length;
   const knownPower=members.filter(m=>playerPower(m)!==null).length;
   const totalPower=members.reduce((sum,m)=>sum+number(playerPower(m)),0);
-  const totalKills=members.reduce((sum,m)=>sum+number(playerKills(m)),0);
   document.getElementById("memberCount").textContent=members.length.toLocaleString("en-GB");
   document.getElementById("totalPower").textContent=format(totalPower);
-  document.getElementById("totalKills").textContent=format(totalKills);
   document.getElementById("updated").textContent=new Date().toLocaleTimeString("en-GB");
   document.getElementById("summary").textContent="Successfully loaded "+members.length+" alliance members.";
-  document.getElementById("dataQuality").textContent="Names found: "+knownNames+"/"+members.length+" · Kill records found: "+knownKills+"/"+members.length+" · Power records found: "+knownPower+"/"+members.length;
-  document.getElementById("dataQuality").className=knownNames===members.length&&knownKills===members.length&&knownPower===members.length?"status good":"status warning";
+  document.getElementById("dataQuality").textContent="Names found: "+knownNames+"/"+members.length+" · Power records found: "+knownPower+"/"+members.length;
+  document.getElementById("dataQuality").className=knownNames===members.length&&knownPower===members.length?"status good":"status warning";
   const clip=o=>JSON.stringify(o,null,1).slice(0,1800);
   document.getElementById("debug").textContent="Top-level keys: "+(data&&typeof data==="object"?Object.keys(data).join(", "):typeof data)+"\n\nFields on first member:\n"+(members[0]?Object.keys(members[0]).join(", "):"none")+"\n\nNested player fields:\n"+(members[0]?.player?Object.keys(members[0].player).join(", "):"No player object found")+"\n\nFirst member player data:\n"+(members[0]?.player?clip(members[0].player):"No player object found");
-  renderMembers();status.textContent="● MightPulse connected";status.className="status good";
+  renderMembers();renderHall();status.textContent="● MightPulse connected";status.className="status good";
   console.log("MIGHTPULSE RESPONSE:",data);console.log("MEMBERS LOADED:",members.length);
  }catch(error){
   status.textContent="● Connection/data error";status.className="status bad";
@@ -327,8 +321,17 @@ function setMessage(id,message,type="status"){
  const el=document.getElementById(id);el.textContent=message;el.className=type;
 }
 function setAdminView(){
- document.getElementById("adminLoginPanel").classList.toggle("hidden",!!adminToken);
- document.getElementById("adminPanel").classList.toggle("hidden",!adminToken);
+ const leader=!!adminToken;
+ document.getElementById("adminLoginPanel").classList.toggle("hidden",leader);
+ document.getElementById("adminPanel").classList.toggle("hidden",!leader);
+ document.getElementById("attendancePanel").classList.toggle("hidden",!leader);
+ document.querySelectorAll("[data-leader]").forEach(b=>b.classList.toggle("hidden",!leader));
+ if(leader){
+  loadAttendance();
+ }else{
+  const active=document.querySelector(".tab.active");
+  if(active&&(active.id==="power"||active.id==="academy"))showTab("dashboard",document.querySelector("nav button"));
+ }
 }
 function selectedPlayer(){return document.getElementById("eventPlayer").value}
 async function apiJson(url,options={}){
@@ -368,7 +371,9 @@ async function loadEvents(){
  try{
   const data=await apiJson(EVENTS_URL,{method:"GET",headers:{"Cache-Control":"no-cache"}});
   eventData={events:Array.isArray(data.events)?data.events:[],signups:Array.isArray(data.signups)?data.signups:[],members:Array.isArray(data.members)?data.members:[],rosterAvailable:data.rosterAvailable===true};
-  renderRoster();renderEvents();renderBattle();status.textContent="Events updated";status.className="status good";
+  renderRoster();renderEvents();renderBattle();renderNextEvent();
+  if(adminToken){renderAttendanceForm();renderAttendanceSummary();}
+  status.textContent="Events updated";status.className="status good";
  }catch(error){
   status.textContent="Could not load events";status.className="status bad";
   document.getElementById("eventList").textContent=error.message;
@@ -577,10 +582,6 @@ async function deleteEvent(eventId){
  }
 }
 
-setAdminView();
-resetEventForm();
-loadAlliance();
-loadEvents();
  function battleEvent(){
  const now=Date.now();
  return [...eventData.events]
@@ -636,10 +637,12 @@ async function battleAction(action,eventId){
   await loadEvents();
  }catch(error){alert(error.message)}
 }
+// Tick the countdowns once a second.
 setInterval(()=>{
- const el=document.getElementById("battleCountdown");
- if(!el||!el.dataset.time)return;
- el.textContent=countdownText(Number(el.dataset.time)-Date.now());
+ ["battleCountdown","nextEventCountdown"].forEach(id=>{
+  const el=document.getElementById(id);
+  if(el&&el.dataset.time)el.textContent=countdownText(Number(el.dataset.time)-Date.now());
+ });
 },1000);
  (function(){
  const ua=navigator.userAgent||"";
@@ -655,7 +658,6 @@ setInterval(()=>{
  });
 })();
  var attendance=[];
-var attSig="";
 
 document.getElementById("adminPanel").insertAdjacentHTML("afterend",`
 <div id="attendancePanel" class="panel hidden">
@@ -761,13 +763,6 @@ function renderAttendanceSummary(){
   :'<tr><td colspan="4">No attendance logged yet.</td></tr>';
 }
 
-setInterval(()=>{
- const sig=adminToken+"|"+eventData.events.length+"|"+eventData.members.length;
- if(sig===attSig)return;
- attSig=sig;
- document.getElementById("attendancePanel").classList.toggle("hidden",!adminToken);
- if(adminToken)loadAttendance();
-},1000);
  document.querySelector("#dashboard .stats").insertAdjacentHTML("beforebegin",'<div id="nextEventSlot"></div>');
 document.querySelector("#dashboard .stats").insertAdjacentHTML("afterend",'<section id="hallPanel"></section>');
 
@@ -790,7 +785,6 @@ function renderHall(){
  if(!members.length){box.innerHTML="";return}
  box.innerHTML='<h2>🏆 Hall of Fame</h2><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px">'
   +boardHtml("⚡ Top Power",topBy(playerPower,5))
-  +boardHtml("⚔️ Top Kills",topBy(playerKills,5))
   +'</div>';
 }
 
@@ -806,13 +800,12 @@ function renderNextEvent(){
  document.getElementById("nextEventBtn").addEventListener("click",()=>showTab("events",document.querySelectorAll("nav button")[2]));
 }
 
-var hallSig="";
-setInterval(()=>{
- const sig=members.length+"|"+eventData.events.length;
- if(sig!==hallSig){hallSig=sig;renderHall();renderNextEvent();}
- const el=document.getElementById("nextEventCountdown");
- if(el)el.textContent=countdownText(Number(el.dataset.time)-Date.now());
-},1000);
+
+// Start-up (kept last so every panel above exists first).
+setAdminView();
+resetEventForm();
+loadAlliance();
+loadEvents();
 </script>
 <script>
   if ("serviceWorker" in navigator) {
@@ -838,36 +831,6 @@ document.addEventListener("click",e=>{
   installPrompt.userChoice.finally(()=>{installPrompt=null});
 },true);
  </script>
-<script>
-(function(){
-  const s=document.createElement("style");
-  s.textContent=".stats .card:nth-child(3){display:none}";
-  document.head.appendChild(s);
-  setInterval(()=>{
-    document.querySelectorAll("#hallPanel .card").forEach(c=>{
-      if(c.textContent.includes("Top Kills"))c.style.display="none";
-    });
-    const o=document.querySelector('#detailSelect option[value="kills"]');
-    if(o)o.remove();
-  },500);
-})();
-</script>
 
-<script>
-(function(){
-  const original=setAdminView;
-  setAdminView=function(){
-    original();
-    document.querySelectorAll("[data-leader]").forEach(b=>b.classList.toggle("hidden",!adminToken));
-    if(!adminToken){
-      const active=document.querySelector(".tab.active");
-      if(active&&(active.id==="power"||active.id==="academy")){
-        showTab("dashboard",document.querySelector("nav button"));
-      }
-    }
-  };
-  setAdminView();
-})();
-</script>
 </body>
 </html>
