@@ -1,15 +1,4 @@
-async function isAdmin(request, db) {
-  const auth = request.headers.get("Authorization") || "";
-  const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
-  if (!token || token.length > 100) return false;
-  const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(token));
-  const tokenHash = Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, "0")).join("");
-  const session = await db
-    .prepare("SELECT token_hash FROM admin_sessions WHERE token_hash = ? AND expires_at > ?")
-    .bind(tokenHash, Date.now())
-    .first();
-  return !!session;
-}
+import { isAdmin } from "../_lib/shared.js";
 
 function cleanNames(list) {
   const names = Array.isArray(list) ? list : [];

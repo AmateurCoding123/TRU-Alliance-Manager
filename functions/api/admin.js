@@ -1,20 +1,8 @@
+import { sha256Hex, sameSecret, endSession } from "../_lib/shared.js";
+
 const SESSION_MS = 86400000;          // logins last 24 hours
 const ATTEMPT_WINDOW_MS = 15 * 60000; // count failed logins over 15 minutes
 const MAX_FAILURES = 5;               // per IP address in that window
-
-async function sha256Hex(text) {
-  const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
-  return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, "0")).join("");
-}
-
-// Compares hashes of both values so the time taken does not reveal the password.
-async function samePassword(given, expected) {
-  if (!expected) return false;
-  const [a, b] = await Promise.all([sha256Hex(given), sha256Hex(expected)]);
-  let diff = 0;
-  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  return diff === 0;
-}
 
 export async function onRequest({ request, env }) {
   if (request.method !== "POST") {
@@ -47,7 +35,7 @@ export async function onRequest({ request, env }) {
       }
 
       const password = String(data.password || "");
-      if (!password || password.length > 256 || !(await samePassword(password, env.ADMIN_PASSWORD))) {
+      if (!password || password.length > 256 || !(await sameSecret(password, env.ADMIN_PASSWORD))) {
         await db.prepare("INSERT INTO login_failures (ip, at) VALUES (?, ?)").bind(ip, now).run();
         return Response.json({ error: "Incorrect password" }, { status: 401 });
       }
@@ -60,11 +48,7 @@ export async function onRequest({ request, env }) {
     }
 
     if (data.action === "logout") {
-      const auth = request.headers.get("Authorization") || "";
-      const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
-      if (token && token.length <= 100) {
-        await db.prepare("DELETE FROM admin_sessions WHERE token_hash = ?").bind(await sha256Hex(token)).run();
-      }
+      await endSession(request, db);
       return Response.json({ success: true });
     }
 

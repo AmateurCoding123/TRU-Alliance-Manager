@@ -1,4 +1,5 @@
-const SITE_ORIGIN = "https://tru-alliance-manager.pages.dev";
+import { MIGHTPULSE_URL, isAdmin, normalise, playerName, fetchMightPulse } from "../_lib/shared.js";
+
 const KEEP_DAYS = 90;
 const DAY = 86400000;
 
@@ -7,29 +8,14 @@ const DAY = 86400000;
 const ALLIANCES = {
   main: {
     table: "power_snapshots",
-    source: "https://mightpulse-api.peter-neighbour4.workers.dev"
+    source: MIGHTPULSE_URL
   },
   academy: {
     table: "power_snapshots_academy",
     // Same Worker, asking for the academy. Its tag is set in the Worker.
-    source: "https://mightpulse-api.peter-neighbour4.workers.dev?alliance=academy"
+    source: MIGHTPULSE_URL + "?alliance=academy"
   }
 };
-
-function normalise(value) {
-  return String(value).normalize("NFKC").toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
-}
-
-function playerName(member) {
-  const player = member?.player || member || {};
-  const name =
-    player.nick_name || player.nickname || player.player_name || player.name ||
-    member?.nick_name || member?.nickname || member?.player_name || member?.name;
-  if (!name) return null;
-  const result = String(name).trim();
-  if (!result || result.toLowerCase() === "unknown" || result.length > 100) return null;
-  return result;
-}
 
 function playerPower(member) {
   const player = member?.player || member || {};
@@ -41,15 +27,7 @@ function playerPower(member) {
 }
 
 async function getLiveMembers(sourceUrl) {
-  const response = await fetch(sourceUrl, {
-    headers: { Accept: "application/json", Origin: SITE_ORIGIN },
-    signal: AbortSignal.timeout(25000),
-    cache: "no-store"
-  });
-  if (!response.ok) throw new Error("MightPulse HTTP " + response.status);
-  const data = await response.json();
-  const list = Array.isArray(data.members_full) ? data.members_full : data.members;
-  if (!Array.isArray(list)) throw new Error("MightPulse members array unavailable");
+  const { list } = await fetchMightPulse(sourceUrl);
   const byName = new Map();
   for (const m of list) {
     const name = playerName(m);
@@ -58,19 +36,6 @@ async function getLiveMembers(sourceUrl) {
   }
   if (!byName.size) throw new Error("No member names with power found in MightPulse response");
   return [...byName.values()];
-}
-
-async function isAdmin(request, db) {
-  const auth = request.headers.get("Authorization") || "";
-  const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
-  if (!token || token.length > 100) return false;
-  const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(token));
-  const tokenHash = Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, "0")).join("");
-  const session = await db
-    .prepare("SELECT token_hash FROM admin_sessions WHERE token_hash = ? AND expires_at > ?")
-    .bind(tokenHash, Date.now())
-    .first();
-  return !!session;
 }
 
 function dayString(ms) {

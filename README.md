@@ -16,6 +16,7 @@ data comes from the MightPulse worker.
 | `functions/api/events.js` | Events and sign-ups (members sign up with the alliance PIN, only leaders cancel) |
 | `functions/api/attendance.js` | Attendance log (leaders only) |
 | `functions/api/power.js` | Daily power snapshots and growth (leaders only) |
+| `functions/_lib/shared.js` | Shared API code: leadership-login check, MightPulse address and fetch, name matching |
 | `schema.sql` | Every database table |
 
 ## Cloudflare settings

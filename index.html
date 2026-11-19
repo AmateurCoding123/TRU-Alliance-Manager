@@ -385,43 +385,54 @@ async function loadEvents(){
  }
 }
 function eventSignups(eventId){return eventData.signups.filter(s=>String(s.event_id)===String(eventId))}
- function renderEvents(){
- const container=document.getElementById("eventList");
- if(!eventData.events.length){
-  container.innerHTML='<div class="panel muted">There are no events scheduled at the moment.</div>';
-  return;
- }
+// How long after an event starts it still counts as "current" (matches the server).
+const EVENT_OPEN_MS=3*3600000;
+function eventTime(e){return new Date(e.event_date).getTime()}
+function eventIsOver(e){const t=eventTime(e);return Number.isFinite(t)&&Date.now()>t+EVENT_OPEN_MS}
 
- const sorted=[...eventData.events].sort((a,b)=>new Date(a.event_date)-new Date(b.event_date));
-
- container.innerHTML=sorted.map(event=>{
-  const signups=eventSignups(event.id);
-  const player=selectedPlayer();
-  const alreadySigned=signups.some(s=>s.player_name===player);
-  const date=new Date(event.event_date);
-  const dateText=Number.isNaN(date.getTime())?safe(event.event_date):date.toLocaleString("en-GB",{dateStyle:"medium",timeStyle:"short"});
-
-  return `
-   <div class="event-card">
-    <div class="event-date">${dateText}</div>
-    <h3>${safe(event.event_name)}</h3>
-    ${event.description?`<div class="event-description">${safe(event.description)}</div>`:""}
-    <div class="attendance">
-     <strong>Attendance (${signups.length})</strong>
-     ${signupList(event.id,signups)}
-    </div>
-    <div class="event-actions">
-     ${alreadySigned
-      ?`<button class="secondary" disabled>✓ You're signed up</button>`
-      :`<button class="primary" onclick="signup(${Number(event.id)})" ${!player||!eventData.rosterAvailable?"disabled":""}>Sign up</button>`}
-     ${adminToken?`
-      <button class="secondary" onclick="editEvent(${Number(event.id)})">Edit</button>
-      <button class="danger" onclick="deleteEvent(${Number(event.id)})">Delete</button>
-     `:""}
-    </div>
+function eventCard(event){
+ const signups=eventSignups(event.id);
+ const player=selectedPlayer();
+ const alreadySigned=signups.some(s=>s.player_name===player);
+ const over=eventIsOver(event);
+ const date=new Date(event.event_date);
+ const dateText=Number.isNaN(date.getTime())?safe(event.event_date):date.toLocaleString("en-GB",{dateStyle:"medium",timeStyle:"short"});
+ let action;
+ if(over)action='<button class="secondary" disabled>Event over</button>';
+ else if(alreadySigned)action='<button class="secondary" disabled>✓ You\'re signed up</button>';
+ else action=`<button class="primary" onclick="signup(${Number(event.id)})" ${!player||!eventData.rosterAvailable?"disabled":""}>Sign up</button>`;
+ return `
+  <div class="event-card">
+   <div class="event-date">${dateText}</div>
+   <h3>${safe(event.event_name)}</h3>
+   ${event.description?`<div class="event-description">${safe(event.description)}</div>`:""}
+   <div class="attendance">
+    <strong>Attendance (${signups.length})</strong>
+    ${signupList(event.id,signups)}
    </div>
-  `;
- }).join("");
+   <div class="event-actions">
+    ${action}
+    ${adminToken?`
+     <button class="secondary" onclick="editEvent(${Number(event.id)})">Edit</button>
+     <button class="danger" onclick="deleteEvent(${Number(event.id)})">Delete</button>
+    `:""}
+   </div>
+  </div>
+ `;
+}
+
+function renderEvents(){
+ const container=document.getElementById("eventList");
+ // Upcoming and current events first (soonest first); finished ones folded away (newest first).
+ const upcoming=eventData.events.filter(e=>!eventIsOver(e)).sort((a,b)=>eventTime(a)-eventTime(b));
+ const past=eventData.events.filter(eventIsOver).sort((a,b)=>eventTime(b)-eventTime(a));
+ const wasOpen=!!document.querySelector("#pastEvents[open]");
+ container.innerHTML=(upcoming.length
+   ?upcoming.map(eventCard).join("")
+   :'<div class="panel muted">There are no events scheduled at the moment.</div>')
+  +(past.length
+   ?`<details id="pastEvents" class="panel"${wasOpen?" open":""}><summary>Past events (${past.length})</summary>${past.map(eventCard).join("")}</details>`
+   :"");
 }
 
 // The shared alliance PIN. Asked for once, then remembered on this device.
@@ -602,7 +613,7 @@ async function deleteEvent(eventId){
  const now=Date.now();
  return [...eventData.events]
   .filter(e=>/castle\s*battle/i.test(e.event_name||""))
-  .filter(e=>{const t=new Date(e.event_date).getTime();return Number.isFinite(t)&&t>now-3*3600000})
+  .filter(e=>Number.isFinite(eventTime(e))&&!eventIsOver(e))
   .sort((a,b)=>new Date(a.event_date)-new Date(b.event_date))[0]||null;
 }
 function countdownText(ms){
@@ -801,7 +812,7 @@ function renderNextEvent(){
  const slot=document.getElementById("nextEventSlot");
  const now=Date.now();
  const ev=[...eventData.events]
-  .filter(e=>{const t=new Date(e.event_date).getTime();return Number.isFinite(t)&&t>now-2*3600000})
+  .filter(e=>Number.isFinite(eventTime(e))&&!eventIsOver(e))
   .sort((a,b)=>new Date(a.event_date)-new Date(b.event_date))[0];
  if(!ev){slot.innerHTML="";return}
  const t=new Date(ev.event_date).getTime();

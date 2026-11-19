@@ -1,31 +1,7 @@
-const MIGHTPULSE_API_URL = "https://mightpulse-api.peter-neighbour4.workers.dev";
-const SITE_ORIGIN = "https://tru-alliance-manager.pages.dev";
-
-function normalise(value) {
-  return String(value).normalize("NFKC").toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
-}
-
-function playerName(member) {
-  const player = member?.player || member || {};
-  const name =
-    player.nick_name || player.nickname || player.player_name || player.name ||
-    member?.nick_name || member?.nickname || member?.player_name || member?.name;
-  if (!name) return null;
-  const result = String(name).trim();
-  if (!result || result.toLowerCase() === "unknown" || result.length > 100) return null;
-  return result;
-}
+import { EVENT_OPEN_MS, isAdmin, sameSecret, normalise, playerName, fetchMightPulse } from "../_lib/shared.js";
 
 async function getLiveMembers() {
-  const response = await fetch(MIGHTPULSE_API_URL, {
-    headers: { Accept: "application/json", Origin: SITE_ORIGIN },
-    signal: AbortSignal.timeout(25000),
-    cache: "no-store"
-  });
-  if (!response.ok) throw new Error("MightPulse HTTP " + response.status);
-  const data = await response.json();
-  const list = Array.isArray(data.members_full) ? data.members_full : data.members;
-  if (!Array.isArray(list)) throw new Error("MightPulse members array unavailable");
+  const { data, list } = await fetchMightPulse();
   const names = list.map(playerName).filter(Boolean);
   const uniqueNames = [...new Map(names.map(n => [normalise(n), n])).values()];
   if (!uniqueNames.length) throw new Error("No member names found in MightPulse response");
@@ -41,26 +17,8 @@ async function getLiveMembers() {
   };
 }
 
-async function isAdmin(request, db) {
-  const auth = request.headers.get("Authorization") || "";
-  const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
-  if (!token || token.length > 100) return false;
-  const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(token));
-  const tokenHash = Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, "0")).join("");
-  const session = await db
-    .prepare("SELECT token_hash FROM admin_sessions WHERE token_hash = ? AND expires_at > ?")
-    .bind(tokenHash, Date.now())
-    .first();
-  return !!session;
-}
-
 const PIN_WINDOW_MS = 15 * 60000; // count wrong member PINs over 15 minutes
 const MAX_PIN_FAILURES = 10;       // per IP address in that window
-
-async function sha256Hex(text) {
-  const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
-  return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, "0")).join("");
-}
 
 // Checks the shared alliance PIN (the MEMBER_PIN secret). Returns null when the
 // PIN is right, or an error Response. Wrong guesses are limited per IP address,
@@ -77,14 +35,21 @@ async function checkMemberPin(request, db, env, given) {
     return Response.json({ error: "Too many wrong PINs. Please wait 15 minutes and try again." }, { status: 429 });
   }
   const pin = String(given || "").trim();
-  const [a, b] = await Promise.all([sha256Hex(pin), sha256Hex(String(env.MEMBER_PIN).trim())]);
-  let diff = 0;
-  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  if (!pin || pin.length > 20 || diff !== 0) {
+  if (!pin || pin.length > 20 || !(await sameSecret(pin, String(env.MEMBER_PIN).trim()))) {
     await db.prepare("INSERT INTO login_failures (ip, at) VALUES (?, ?)").bind(ip, now).run();
     return Response.json({ error: "Wrong alliance PIN. Ask Gassed for the PIN.", code: "bad_pin" }, { status: 403 });
   }
   return null;
+}
+
+// True once an event started more than EVENT_OPEN_MS ago. Dates saved before
+// Nov 2026 have no timezone, so they get 14 hours' extra slack to be safe.
+function eventIsOver(eventDate) {
+  const text = String(eventDate || "");
+  const start = Date.parse(text);
+  if (!Number.isFinite(start)) return false;
+  const hasZone = /(Z|[+-]\d\d:?\d\d)$/i.test(text);
+  return Date.now() > start + EVENT_OPEN_MS + (hasZone ? 0 : 14 * 3600000);
 }
 
 function readEvent(data) {
@@ -181,8 +146,12 @@ export async function onRequest({ request, env }) {
       return Response.json({ error: "Invalid event" }, { status: 400 });
     }
 
-    const event = await db.prepare("SELECT id FROM events WHERE id = ?").bind(eventId).first();
+    const event = await db.prepare("SELECT id, event_date FROM events WHERE id = ?").bind(eventId).first();
     if (!event) return Response.json({ error: "Event not found" }, { status: 404 });
+
+    if (data.action === "signup" && eventIsOver(event.event_date)) {
+      return Response.json({ error: "This event is over, so sign-ups are closed." }, { status: 409 });
+    }
 
     const submittedName = String(data.player_name || "").trim();
     if (!submittedName || submittedName.length > 100) {
