@@ -48,6 +48,12 @@ Workers AI and saved: English, Korean, German, French, Portuguese and Spanish
 straight after posting, other languages the first time someone reads them. The
 latest 10 announcements are shown; leaders can delete any of them.
 
+Each translation is checked before it is saved: no sentences left in the original
+language and no letters from an unrelated alphabet. If a model's answer fails, the
+next model in the list is tried, and the answer with the fewest problems is kept.
+Leaders can tap "↻ Redo translations" to throw away an announcement's saved
+translations and make them again from the original.
+
 ## Leader Chat
 
 A tab for logged-in leaders. Each leader sets their name and reading language

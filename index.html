@@ -72,7 +72,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .ann-text{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.45}
 .ann-text b{color:#e6c778}
 .ann-foot{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:8px}
-.ann-foot .msg-toggle,.ann-foot .danger{padding:4px 10px;font-size:12px}
+.ann-foot .msg-toggle,.ann-foot .danger,.ann-foot .secondary{padding:4px 10px;font-size:12px}
 #annLang{width:auto;max-width:200px;margin:0}
 #chatLog{height:55vh;min-height:280px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding:4px 2px}
 .msg{max-width:85%;padding:9px 12px;border-radius:12px;background:#1f2638;border:1px solid #34394a;align-self:flex-start}
@@ -918,7 +918,7 @@ function renderAnnouncements(){
    +(translated?'<div class="msg-orig ann-text hidden">'+annFormat(a.original)+'</div>':'')
    +'<div class="ann-foot"><span class="status">'+safe(when)+'</span>'
    +(translated?'<button class="msg-toggle ann-toggle" type="button">🌐 Original</button>':'')
-   +(adminToken?'<button class="danger ann-delete" type="button" data-id="'+a.id+'">Delete</button>':'')
+   +(adminToken?'<button class="secondary ann-redo" type="button" data-id="'+a.id+'">↻ Redo translations</button><button class="danger ann-delete" type="button" data-id="'+a.id+'">Delete</button>':'')
    +'</div></div>';
  };
  list.innerHTML=items.slice(0,3).map(card).join("")
@@ -927,6 +927,16 @@ function renderAnnouncements(){
 document.getElementById("annList").addEventListener("click",async e=>{
  const toggle=e.target.closest(".ann-toggle");
  if(toggle){toggle.closest(".ann").querySelector(".msg-orig").classList.toggle("hidden");return}
+ const redo=e.target.closest(".ann-redo");
+ if(redo&&adminToken){
+  if(!confirm("Make fresh translations of this announcement? Each language is translated again from your original."))return;
+  redo.disabled=true;
+  try{
+   await apiJson("/api/announcements",{method:"POST",headers:{"Authorization":"Bearer "+adminToken},body:JSON.stringify({action:"retranslate",id:Number(redo.dataset.id)})});
+   await loadAnnouncements();
+  }catch(error){alert(error.message);redo.disabled=false}
+  return;
+ }
  const del=e.target.closest(".ann-delete");
  if(!del||!adminToken||!confirm("Delete this announcement for everyone?"))return;
  del.disabled=true;
