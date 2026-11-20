@@ -52,6 +52,18 @@ CREATE TABLE IF NOT EXISTS attendance (
   PRIMARY KEY (event_id, player_name)
 );
 
+-- Leader Chat messages. Each message is saved in English and Korean;
+-- source_lang ('en' or 'ko') says which one the sender wrote. The other is
+-- the automatic translation (NULL if translation was unavailable).
+CREATE TABLE IF NOT EXISTS leader_chat (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  sent_at     INTEGER NOT NULL,
+  sender      TEXT NOT NULL,
+  source_lang TEXT NOT NULL,
+  text_en     TEXT,
+  text_ko     TEXT
+);
+
 -- Daily power snapshots, one table per alliance (kept for 90 days).
 CREATE TABLE IF NOT EXISTS power_snapshots (
   snap_date   TEXT NOT NULL,

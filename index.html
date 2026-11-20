@@ -68,6 +68,17 @@ button:disabled{opacity:.5;cursor:not-allowed}
  .form-grid.two{grid-template-columns:1fr 1fr;gap:12px}
 }
 #dashboard > section:not(#hallPanel){display:none}
+#chatLog{height:55vh;min-height:280px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding:4px 2px}
+.msg{max-width:85%;padding:9px 12px;border-radius:12px;background:#1f2638;border:1px solid #34394a;align-self:flex-start}
+.msg.mine{align-self:flex-end;background:#3a3020;border-color:#6b5a32}
+.msg-head{font-size:12px;color:#9ba2b4;margin-bottom:4px}
+.msg-head b{color:#e6c778}
+.msg-text{white-space:pre-wrap;overflow-wrap:anywhere}
+.msg-orig{margin-top:6px;padding-top:6px;border-top:1px dashed #51472f;color:#9ba2b4;font-size:13px;white-space:pre-wrap;overflow-wrap:anywhere}
+.msg-toggle{background:none;border:0;padding:4px 0 0;color:#927f55;font-size:12px}
+#chatForm{display:flex;gap:8px;align-items:flex-end}
+#chatForm textarea{min-height:48px;height:48px;margin:0}
+#chatForm button{flex:none}
 </style>
 </head>
 <body>
@@ -87,6 +98,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <button onclick="showTab('battle',this)">Castle Battle</button>
  <button class="hidden" data-leader onclick="showTab('power',this)">Power Growth</button>
  <button class="hidden" data-leader onclick="showTab('academy',this)">Academy Growth</button>
+ <button class="hidden" data-leader onclick="showTab('chat',this)">Leader Chat</button>
 </nav>
 <main>
 <div id="dashboard" class="tab active">
@@ -173,6 +185,27 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <div id="academy" class="tab">
 <iframe data-src="power.html?alliance=academy" title="Academy Power Growth" style="width:100%;height:1500px;border:0"></iframe>
 </div>
+<div id="chat" class="tab">
+<h2 id="chatTitle">Leader Chat</h2>
+<div id="chatSetup" class="panel hidden">
+ <p id="chatSetupIntro" class="muted">Write in your own language. Messages are translated automatically: English ↔ 한국어.</p>
+ <div class="form-grid two">
+  <div><label for="chatName">Your name / 이름</label><input id="chatName" maxlength="30" placeholder="In-game name"></div>
+  <div><label for="chatLang">Read messages in / 읽을 언어</label><select id="chatLang"><option value="en">English</option><option value="ko">한국어 (Korean)</option></select></div>
+ </div>
+ <button id="chatSaveSetup" class="primary">Start chatting / 시작하기</button>
+</div>
+<div id="chatMain" class="panel hidden">
+ <div class="row"><span id="chatWho" class="status"></span><button id="chatChange" class="secondary small">⚙</button></div>
+ <p id="chatNotice" class="status warning hidden"></p>
+ <div id="chatLog" aria-live="polite"></div>
+ <form id="chatForm">
+  <textarea id="chatText" maxlength="1000" rows="2"></textarea>
+  <button id="chatSend" class="primary" type="submit"></button>
+ </form>
+ <p id="chatStatus" class="status"></p>
+</div>
+</div>
 </main>
 <footer>TRU ALLIANCE MANAGER · KINGDOM 2443</footer>
 
@@ -194,6 +227,7 @@ function showTab(id,button){
  document.getElementById(id).classList.add("active");
  button.classList.add("active");
  if(id==="events"||id==="battle")loadEvents();
+ if(id==="chat")openChat();else stopChat();
  // Leadership-only pages load when opened, so they pick up the current login.
  const frame=document.querySelector("#"+id+" iframe[data-src]");
  if(frame)frame.src=frame.dataset.src;
@@ -330,7 +364,7 @@ function setAdminView(){
   loadAttendance();
  }else{
   const active=document.querySelector(".tab.active");
-  if(active&&(active.id==="power"||active.id==="academy"))showTab("dashboard",document.querySelector("nav button"));
+  if(active&&(active.id==="power"||active.id==="academy"||active.id==="chat"))showTab("dashboard",document.querySelector("nav button"));
  }
 }
 function selectedPlayer(){return document.getElementById("eventPlayer").value}
@@ -820,6 +854,128 @@ function renderNextEvent(){
  document.getElementById("nextEventBtn").addEventListener("click",()=>showTab("events",document.querySelectorAll("nav button")[2]));
 }
 
+
+// ---- Leader Chat: each leader writes in their own language, the server
+// translates English <-> Korean and saves both, so each reader sees their own.
+const CHAT_TEXT={
+ en:{title:"Leader Chat",send:"Send",placeholder:"Write in English…",you:"You",showOrig:"Show original (Korean)",hideOrig:"Hide original",
+  noTrans:"(not translated)",sending:"Sending and translating…",empty:"No messages yet. Say hello!",
+  notReady:"Automatic translation isn't switched on yet, so messages will only show in the language they were written in.",
+  who:(n)=>"Chatting as "+n+" · reading in English",loadFail:"Couldn't load messages. Retrying…"},
+ ko:{title:"리더 채팅",send:"보내기",placeholder:"한국어로 쓰세요…",you:"나",showOrig:"원문 보기 (영어)",hideOrig:"원문 숨기기",
+  noTrans:"(번역 안 됨)",sending:"보내고 번역하는 중…",empty:"아직 메시지가 없어요. 인사해 보세요!",
+  notReady:"자동 번역이 아직 켜지지 않았어요. 메시지는 쓴 언어로만 보여요.",
+  who:(n)=>n+"(으)로 채팅 중 · 한국어로 읽기",loadFail:"메시지를 불러오지 못했어요. 다시 시도 중…"}
+};
+let chatMessages=[],chatTimer=null,chatBusy=false,chatPrefsMemory=null;
+function chatPrefs(){
+ try{return JSON.parse(localStorage.getItem("truChatPrefs")||"null")||chatPrefsMemory}catch(_){return chatPrefsMemory}
+}
+function chatT(){return CHAT_TEXT[(chatPrefs()||{}).lang==="ko"?"ko":"en"]}
+function openChat(){
+ const prefs=chatPrefs();
+ document.getElementById("chatSetup").classList.toggle("hidden",!!prefs);
+ document.getElementById("chatMain").classList.toggle("hidden",!prefs);
+ if(!prefs){
+  document.getElementById("chatLang").value=/^ko/i.test(navigator.language||"")?"ko":"en";
+  return;
+ }
+ const t=chatT();
+ document.getElementById("chatTitle").textContent=t.title;
+ document.getElementById("chatWho").textContent=t.who(prefs.name);
+ document.getElementById("chatText").placeholder=t.placeholder;
+ document.getElementById("chatSend").textContent=t.send;
+ renderChat();
+ pollChat();
+}
+function stopChat(){clearTimeout(chatTimer);chatTimer=null}
+async function pollChat(){
+ stopChat();
+ if(!adminToken||!document.getElementById("chat").classList.contains("active"))return;
+ if(!document.hidden){
+  try{
+   const last=chatMessages.length?chatMessages[chatMessages.length-1].id:0;
+   const data=await apiJson("/api/chat?after="+last,{method:"GET",headers:{"Authorization":"Bearer "+adminToken}});
+   const notice=document.getElementById("chatNotice");
+   notice.textContent=chatT().notReady;notice.classList.toggle("hidden",data.translationReady!==false);
+   addChatMessages(data.messages||[]);
+   if(!chatMessages.length)renderChat();
+   if(document.getElementById("chatStatus").textContent===chatT().loadFail)setMessage("chatStatus","");
+  }catch(error){
+   if(!adminToken)return;
+   setMessage("chatStatus",chatT().loadFail,"status bad");
+  }
+ }
+ if(adminToken&&document.getElementById("chat").classList.contains("active"))chatTimer=setTimeout(pollChat,4000);
+}
+function addChatMessages(list){
+ const known=new Set(chatMessages.map(m=>m.id));
+ const fresh=list.filter(m=>!known.has(m.id));
+ if(!fresh.length)return;
+ chatMessages=chatMessages.concat(fresh).sort((a,b)=>a.id-b.id).slice(-300);
+ renderChat();
+}
+function renderChat(){
+ const log=document.getElementById("chatLog"),prefs=chatPrefs()||{},t=chatT(),mine=prefs.lang==="ko"?"ko":"en";
+ const atBottom=log.scrollHeight-log.scrollTop-log.clientHeight<60;
+ if(!chatMessages.length){log.innerHTML='<p class="muted">'+safe(t.empty)+'</p>';return}
+ log.innerHTML=chatMessages.map(m=>{
+  const isMine=m.sender===prefs.name;
+  const original=m.source_lang==="ko"?m.text_ko:m.text_en;
+  const shown=mine==="ko"?m.text_ko:m.text_en;
+  const translated=m.source_lang!==mine;
+  const when=new Date(m.sent_at).toLocaleString(mine==="ko"?"ko-KR":"en-GB",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});
+  let body;
+  if(!translated)body='<div class="msg-text">'+safe(original)+'</div>';
+  else if(!shown)body='<div class="msg-text">'+safe(original)+'</div><div class="msg-head">'+safe(t.noTrans)+'</div>';
+  else body='<div class="msg-text">'+safe(shown)+'</div><div class="msg-orig hidden" lang="'+safe(m.source_lang)+'">'+safe(original)+'</div>'
+   +'<button class="msg-toggle" type="button" data-show="'+safe(t.showOrig)+'" data-hide="'+safe(t.hideOrig)+'">'+safe(t.showOrig)+'</button>';
+  return '<div class="msg'+(isMine?' mine':'')+'"><div class="msg-head"><b>'+safe(isMine?t.you:m.sender)+'</b> · '+safe(when)+'</div>'+body+'</div>';
+ }).join("");
+ if(atBottom||log.dataset.ready!=="1"){log.scrollTop=log.scrollHeight;log.dataset.ready="1"}
+}
+document.getElementById("chatLog").addEventListener("click",e=>{
+ const b=e.target.closest(".msg-toggle");if(!b)return;
+ const orig=b.previousElementSibling,hide=orig.classList.toggle("hidden");
+ b.textContent=hide?b.dataset.show:b.dataset.hide;
+});
+document.getElementById("chatSaveSetup").addEventListener("click",()=>{
+ const name=document.getElementById("chatName").value.replace(/\s+/g," ").trim().slice(0,30);
+ if(!name){document.getElementById("chatName").focus();return}
+ chatPrefsMemory={name,lang:document.getElementById("chatLang").value};
+ try{localStorage.setItem("truChatPrefs",JSON.stringify(chatPrefsMemory))}catch(_){}
+ openChat();
+});
+document.getElementById("chatChange").addEventListener("click",()=>{
+ const prefs=chatPrefs()||{};
+ stopChat();
+ document.getElementById("chatName").value=prefs.name||"";
+ document.getElementById("chatLang").value=prefs.lang||"en";
+ document.getElementById("chatSetup").classList.remove("hidden");
+ document.getElementById("chatMain").classList.add("hidden");
+});
+document.getElementById("chatText").addEventListener("keydown",e=>{
+ if(e.key==="Enter"&&!e.shiftKey&&!e.isComposing){e.preventDefault();document.getElementById("chatForm").requestSubmit()}
+});
+document.getElementById("chatForm").addEventListener("submit",async e=>{
+ e.preventDefault();
+ const box=document.getElementById("chatText"),text=box.value.trim(),prefs=chatPrefs();
+ if(!text||chatBusy||!prefs)return;
+ chatBusy=true;document.getElementById("chatSend").disabled=true;
+ setMessage("chatStatus",chatT().sending);
+ try{
+  const data=await apiJson("/api/chat",{method:"POST",headers:{"Authorization":"Bearer "+adminToken},body:JSON.stringify({action:"send",name:prefs.name,text})});
+  box.value="";
+  setMessage("chatStatus","");
+  const log=document.getElementById("chatLog");log.dataset.ready="";
+  addChatMessages([data.message]);
+ }catch(error){
+  setMessage("chatStatus",error.message,"status bad");
+ }finally{
+  chatBusy=false;document.getElementById("chatSend").disabled=false;box.focus();
+ }
+});
+document.addEventListener("visibilitychange",()=>{if(!document.hidden&&document.getElementById("chat").classList.contains("active"))pollChat()});
 
 // Start-up (kept last so every panel above exists first).
 setAdminView();

@@ -15,6 +15,7 @@ data comes from the MightPulse worker.
 | `functions/api/admin.js` | Leadership login and logout |
 | `functions/api/events.js` | Events and sign-ups (members sign up with the alliance PIN, only leaders cancel) |
 | `functions/api/attendance.js` | Attendance log (leaders only) |
+| `functions/api/chat.js` | Leader Chat (leaders only): messages are translated English ↔ Korean with Workers AI |
 | `functions/api/power.js` | Daily power snapshots and growth (leaders only) |
 | `functions/_lib/shared.js` | Shared API code: leadership-login check, MightPulse address and fetch, name matching |
 | `functions/_lib/power.js` | Power snapshot code shared by `/api/power` and `/api/snapshot` |
@@ -25,12 +26,24 @@ data comes from the MightPulse worker.
 ## Cloudflare settings
 
 - **D1 binding:** `DB`
+- **Workers AI binding:** `AI`, used by Leader Chat to translate messages. Add it under
+  the Pages project's Settings → Bindings → Add → Workers AI, variable name `AI`, then
+  redeploy. Without it the chat still works, but messages aren't translated.
 - **Secret:** `ADMIN_PASSWORD`, the shared leadership password
 - **Secret:** `MEMBER_PIN`, the alliance PIN members enter to sign up for events.
   Members are asked for it once per device. Logged-in leaders don't need it.
   If it isn't set, sign-ups work without a PIN.
 - **Secret:** `SNAPSHOT_KEY`, a long random key. The same value goes on the
   `tru-daily-snapshot` Worker, so only that Worker can take the daily snapshot.
+
+## Leader Chat
+
+A tab for logged-in leaders. Each leader sets their name and reading language
+(English or 한국어) once per device. They write in their own language; the server
+detects English or Korean, translates it to the other with Workers AI, and saves
+both. Everyone reads every message in their own language and can tap
+"Show original" to see what was actually typed. The page checks for new messages
+every 4 seconds while the tab is open.
 
 ## Daily power snapshot
 
