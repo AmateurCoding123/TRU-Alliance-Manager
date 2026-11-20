@@ -68,6 +68,12 @@ button:disabled{opacity:.5;cursor:not-allowed}
  .form-grid.two{grid-template-columns:1fr 1fr;gap:12px}
 }
 #dashboard > section:not(#hallPanel){display:none}
+.ann{background:#171d2a;border:1px solid #34394a;border-left:3px solid #e6c778;border-radius:13px;padding:14px 16px;margin-bottom:10px}
+.ann-text{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.45}
+.ann-text b{color:#e6c778}
+.ann-foot{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:8px}
+.ann-foot .msg-toggle,.ann-foot .danger{padding:4px 10px;font-size:12px}
+#annLang{width:auto;max-width:200px;margin:0}
 #chatLog{height:55vh;min-height:280px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding:4px 2px}
 .msg{max-width:85%;padding:9px 12px;border-radius:12px;background:#1f2638;border:1px solid #34394a;align-self:flex-start}
 .msg.mine{align-self:flex-end;background:#3a3020;border-color:#6b5a32}
@@ -102,6 +108,18 @@ button:disabled{opacity:.5;cursor:not-allowed}
 </nav>
 <main>
 <div id="dashboard" class="tab active">
+<div id="annPanel">
+ <div class="row"><h2 style="margin:0">📢 Announcements</h2><label class="status">🌐 <select id="annLang" aria-label="Language"></select></label></div>
+ <p id="annStatus" class="status"></p>
+ <div id="annList"></div>
+ <div id="annForm" class="panel hidden">
+  <h3>Post an announcement</h3>
+  <p class="muted small">Write it once. Every member sees it in their own phone's language automatically.</p>
+  <textarea id="annText" maxlength="2000" placeholder="Write your announcement… (**bold** works)"></textarea>
+  <div class="row"><label class="status">Written in <select id="annSource" style="width:auto;margin:0 0 0 6px"></select></label><button id="annPost" class="primary" type="button">Post announcement</button></div>
+  <p id="annFormStatus" class="status"></p>
+ </div>
+</div>
 <h2>Alliance Overview</h2>
 <div class="stats">
  <div class="card"><div class="number" id="memberCount">--</div><p>Members</p></div>
@@ -362,7 +380,9 @@ function setAdminView(){
  document.querySelectorAll("[data-leader]").forEach(b=>b.classList.toggle("hidden",!leader));
  if(leader){
   loadAttendance();
- }else{
+ }
+ if(typeof renderAnnouncements==="function")renderAnnouncements();
+ if(!leader){
   const active=document.querySelector(".tab.active");
   if(active&&(active.id==="power"||active.id==="academy"||active.id==="chat"))showTab("dashboard",document.querySelector("nav button"));
  }
@@ -855,6 +875,85 @@ function renderNextEvent(){
 }
 
 
+// ---- Announcements: leaders post once; the server translates into each reader's language.
+let annData={announcements:[],languages:{en:["English","English"]}},annLoading=0,annLangChoice="";
+function annLangPref(){
+ if(annLangChoice)return annLangChoice;
+ try{const saved=localStorage.getItem("truAnnLang");if(saved)return saved}catch(_){}
+ const phone=String(navigator.language||"en").toLowerCase().split("-")[0];
+ return phone==="fil"?"tl":phone==="nb"||phone==="no"?"sv":phone;
+}
+function annFormat(text){return safe(text).replace(/\*\*(.+?)\*\*/g,"<b>$1</b>")}
+async function loadAnnouncements(){
+ const ticket=++annLoading;
+ const status=document.getElementById("annStatus");
+ if(!annData.announcements.length)status.textContent="Loading…";
+ const slow=setTimeout(()=>{if(ticket===annLoading)status.textContent="🌐 Translating…"},1200);
+ try{
+  const data=await apiJson("/api/announcements?lang="+encodeURIComponent(annLangPref()),{method:"GET"});
+  if(ticket!==annLoading)return;
+  annData=data;status.textContent="";
+ }catch(error){
+  if(ticket===annLoading)status.textContent="Couldn't load announcements.";
+ }finally{clearTimeout(slow)}
+ renderAnnouncements();
+}
+function renderAnnouncements(){
+ const langs=annData.languages||{},lang=annData.lang||"en";
+ for(const [id,current] of [["annLang",lang],["annSource",document.getElementById("annSource").value||"en"]]){
+  const select=document.getElementById(id);
+  if(select.options.length!==Object.keys(langs).length){
+   select.innerHTML=Object.entries(langs).map(([code,[en,own]])=>'<option value="'+code+'">'+safe(own===en?own:own+" ("+en+")")+'</option>').join("");
+  }
+  select.value=current;
+ }
+ document.getElementById("annForm").classList.toggle("hidden",!adminToken);
+ const list=document.getElementById("annList"),items=annData.announcements||[];
+ if(!items.length){list.innerHTML=adminToken?'<p class="muted small">No announcements yet.</p>':"";return}
+ const locale=lang==="tl"?"fil":lang;
+ const card=a=>{
+  const shown=a.translated||a.original,translated=!!a.translated;
+  let when="";try{when=new Date(a.created_at).toLocaleString(locale,{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}catch(_){when=new Date(a.created_at).toLocaleString()}
+  return '<div class="ann"><div class="ann-text">'+annFormat(shown)+'</div>'
+   +(translated?'<div class="msg-orig ann-text hidden">'+annFormat(a.original)+'</div>':'')
+   +'<div class="ann-foot"><span class="status">'+safe(when)+'</span>'
+   +(translated?'<button class="msg-toggle ann-toggle" type="button">🌐 Original</button>':'')
+   +(adminToken?'<button class="danger ann-delete" type="button" data-id="'+a.id+'">Delete</button>':'')
+   +'</div></div>';
+ };
+ list.innerHTML=items.slice(0,3).map(card).join("")
+  +(items.length>3?'<details><summary class="status">Older announcements ('+(items.length-3)+')</summary>'+items.slice(3).map(card).join("")+'</details>':"");
+}
+document.getElementById("annList").addEventListener("click",async e=>{
+ const toggle=e.target.closest(".ann-toggle");
+ if(toggle){toggle.closest(".ann").querySelector(".msg-orig").classList.toggle("hidden");return}
+ const del=e.target.closest(".ann-delete");
+ if(!del||!adminToken||!confirm("Delete this announcement for everyone?"))return;
+ del.disabled=true;
+ try{
+  await apiJson("/api/announcements",{method:"POST",headers:{"Authorization":"Bearer "+adminToken},body:JSON.stringify({action:"delete",id:Number(del.dataset.id)})});
+  await loadAnnouncements();
+ }catch(error){alert(error.message);del.disabled=false}
+});
+document.getElementById("annLang").addEventListener("change",e=>{
+ annLangChoice=e.target.value;
+ try{localStorage.setItem("truAnnLang",annLangChoice)}catch(_){}
+ loadAnnouncements();
+});
+document.getElementById("annPost").addEventListener("click",async()=>{
+ const box=document.getElementById("annText"),text=box.value.trim(),button=document.getElementById("annPost");
+ if(!text){box.focus();return}
+ button.disabled=true;setMessage("annFormStatus","Posting…");
+ try{
+  await apiJson("/api/announcements",{method:"POST",headers:{"Authorization":"Bearer "+adminToken},body:JSON.stringify({action:"create",text,source_lang:document.getElementById("annSource").value})});
+  box.value="";
+  setMessage("annFormStatus","Posted. Translations into the main languages are being made now; other languages are translated the first time someone reads them.","status good");
+  await loadAnnouncements();
+ }catch(error){
+  setMessage("annFormStatus",error.message,"status bad");
+ }finally{button.disabled=false}
+});
+
 // ---- Leader Chat: each leader writes in their own language, the server
 // translates English <-> Korean and saves both, so each reader sees their own.
 const CHAT_TEXT={
@@ -982,6 +1081,7 @@ setAdminView();
 resetEventForm();
 loadAlliance();
 loadEvents();
+loadAnnouncements();
 </script>
 <script>
   if ("serviceWorker" in navigator) {

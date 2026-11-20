@@ -15,6 +15,8 @@ data comes from the MightPulse worker.
 | `functions/api/admin.js` | Leadership login and logout |
 | `functions/api/events.js` | Events and sign-ups (members sign up with the alliance PIN, only leaders cancel) |
 | `functions/api/attendance.js` | Attendance log (leaders only) |
+| `functions/api/announcements.js` | Dashboard announcements: leaders post, everyone reads them in their own language |
+| `functions/_lib/translate.js` | Shared Workers AI translation code and the list of announcement languages |
 | `functions/api/chat.js` | Leader Chat (leaders only): messages are translated English ↔ Korean with Workers AI |
 | `functions/api/power.js` | Daily power snapshots and growth (leaders only) |
 | `functions/_lib/shared.js` | Shared API code: leadership-login check, MightPulse address and fetch, name matching |
@@ -26,7 +28,7 @@ data comes from the MightPulse worker.
 ## Cloudflare settings
 
 - **D1 binding:** `DB`
-- **Workers AI binding:** `AI`, used by Leader Chat to translate messages. Add it under
+- **Workers AI binding:** `AI`, used by Leader Chat and Announcements to translate messages. Add it under
   the Pages project's Settings → Bindings → Add → Workers AI, variable name `AI`, then
   redeploy. Without it the chat still works, but messages aren't translated.
 - **Secret:** `ADMIN_PASSWORD`, the shared leadership password
@@ -35,6 +37,16 @@ data comes from the MightPulse worker.
   If it isn't set, sign-ups work without a PIN.
 - **Secret:** `SNAPSHOT_KEY`, a long random key. The same value goes on the
   `tru-daily-snapshot` Worker, so only that Worker can take the daily snapshot.
+
+## Announcements
+
+Shown at the top of the dashboard to everyone, no login needed. Leaders write an
+announcement once (in any of the listed languages) and post it. Each member sees it
+in their phone's language automatically, or picks another from the 🌐 menu, and
+can tap "Original" to see the leader's own wording. Translations are made with
+Workers AI and saved: English, Korean, German, French, Portuguese and Spanish
+straight after posting, other languages the first time someone reads them. The
+latest 10 announcements are shown; leaders can delete any of them.
 
 ## Leader Chat
 

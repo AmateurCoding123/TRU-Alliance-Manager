@@ -2,14 +2,14 @@
 // Every message is saved in both languages, so each leader reads it in their own.
 // Translation uses the Workers AI binding "AI" on the Pages project.
 import { isAdmin } from "../_lib/shared.js";
+import { translateText } from "../_lib/translate.js";
 
 const MAX_TEXT = 1000;
 const MAX_NAME = 30;
 const PAGE = 100;
 
-// A capable multilingual model first; a dedicated translation model as backup.
-const CHAT_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
-const BACKUP_MODEL = "@cf/meta/m2m100-1.2b";
+// A capable multilingual model first; translate.js falls back to a dedicated translation model.
+const CHAT_MODELS = ["@cf/meta/llama-3.3-70b-instruct-fp8-fast"];
 
 const LANG_NAME = { en: "English", ko: "Korean" };
 
@@ -36,26 +36,8 @@ function systemPrompt(from, to) {
   ].join("\n");
 }
 
-async function translate(ai, text, from, to) {
-  if (!ai) return null;
-  try {
-    const result = await ai.run(CHAT_MODEL, {
-      messages: [
-        { role: "system", content: systemPrompt(from, to) },
-        { role: "user", content: text }
-      ],
-      max_tokens: 1024,
-      temperature: 0.2
-    });
-    const out = String(result?.response || "").trim();
-    if (out) return out.slice(0, MAX_TEXT * 3);
-  } catch (_) { /* fall through to the backup model */ }
-  try {
-    const result = await ai.run(BACKUP_MODEL, { text, source_lang: from, target_lang: to });
-    const out = String(result?.translated_text || "").trim();
-    if (out) return out.slice(0, MAX_TEXT * 3);
-  } catch (_) { /* no translation available */ }
-  return null;
+function translate(ai, text, from, to) {
+  return translateText(ai, text, { from, to, system: systemPrompt(from, to), models: CHAT_MODELS, maxLength: MAX_TEXT * 3 });
 }
 
 function cleanName(value) {

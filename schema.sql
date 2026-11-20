@@ -64,6 +64,24 @@ CREATE TABLE IF NOT EXISTS leader_chat (
   text_ko     TEXT
 );
 
+-- Announcements posted by leaders, shown on the dashboard to everyone.
+-- source_lang is the language the leader wrote it in.
+CREATE TABLE IF NOT EXISTS announcements (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  created_at  INTEGER NOT NULL,
+  source_lang TEXT NOT NULL,
+  text        TEXT NOT NULL
+);
+
+-- Saved translations of each announcement, made by Workers AI the first time
+-- they are needed (main languages straight after posting).
+CREATE TABLE IF NOT EXISTS announcement_translations (
+  announcement_id INTEGER NOT NULL,
+  lang            TEXT NOT NULL,
+  text            TEXT NOT NULL,
+  PRIMARY KEY (announcement_id, lang)
+);
+
 -- Daily power snapshots, one table per alliance (kept for 90 days).
 CREATE TABLE IF NOT EXISTS power_snapshots (
   snap_date   TEXT NOT NULL,

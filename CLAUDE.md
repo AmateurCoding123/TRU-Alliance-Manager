@@ -10,7 +10,8 @@
 ## Project
 - Cloudflare Pages site with Pages Functions (`functions/api/`) and a D1
   database bound as `DB`. See README.md for what each file does.
-- Workers AI is bound as `AI` (Leader Chat translation, `functions/api/chat.js`).
+- Workers AI is bound as `AI` (translation for Leader Chat and Announcements;
+  shared code in `functions/_lib/translate.js`).
 - Secrets set in Cloudflare (never put their values in the code):
   `ADMIN_PASSWORD` (leadership login), `MEMBER_PIN` (alliance sign-up PIN) and
   `SNAPSHOT_KEY` (shared with the `tru-daily-snapshot` Worker in `cron-worker/`).
